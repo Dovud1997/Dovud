@@ -98,10 +98,18 @@ class BaseAgentPlugin(Protocol):
 └── docker-compose.yml    # Прод-скелет
 ```
 
-## Допущения MVP
-- Single-tenant: один владелец (логин/пароль из env).
+## Multi-tenant
+- `Organization` + `Membership` (роли owner/admin/member).
+- API scoped через заголовок `X-Org-Id`.
+- Регистрация создаёт пользователя и его первую организацию.
+
+## Плагины MVP+
+- `telegram` — боевой connect/send + demo-токены `demo:*`
+- `instagram` — Graph API connect + demo/stub publish
+- `youtube` — Data API connect + demo/stub actions
+
+## Допущения
 - SQLite по умолчанию; PostgreSQL через `DATABASE_URL`.
-- In-process очередь без Redis.
-- Один рабочий плагин: **Telegram**.
+- In-process очередь по умолчанию; ARQ/Redis опционально.
 - Пиксельная сцена: Canvas 2D, зоны платформ, спрайты со статусом.
-- Mobile — только заготовка папки.
+- Mobile — заготовка (`mobile/`).

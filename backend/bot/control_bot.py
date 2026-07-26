@@ -1,10 +1,7 @@
 """
 Control Telegram-бот — точка управления агентами.
 
-Запуск (после настройки CONTROL_BOT_TOKEN и API):
   python -m bot.control_bot
-
-MVP: команды /agents, /status, /cmd; приём фото+подписи как intent → API /commands.
 """
 
 from __future__ import annotations
@@ -27,6 +24,7 @@ API_BASE = os.getenv("PLATFORM_API_BASE", "http://127.0.0.1:8000/api")
 API_EMAIL = os.getenv("ADMIN_EMAIL", "admin@example.com")
 API_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
 BOT_TOKEN = os.getenv("CONTROL_BOT_TOKEN", "")
+ORG_ID = os.getenv("PLATFORM_ORG_ID", "")
 
 INTENT_MAP = [
     (re.compile(r"истори", re.I), "publish_story"),
@@ -39,6 +37,7 @@ INTENT_MAP = [
 class PlatformClient:
     def __init__(self) -> None:
         self._token: str | None = None
+        self._org_id: str = ORG_ID
 
     async def login(self) -> None:
         async with httpx.AsyncClient(timeout=20) as client:
@@ -47,12 +46,18 @@ class PlatformClient:
                 json={"email": API_EMAIL, "password": API_PASSWORD},
             )
             resp.raise_for_status()
-            self._token = resp.json()["access_token"]
+            data = resp.json()
+            self._token = data["access_token"]
+            if not self._org_id and data.get("orgs"):
+                self._org_id = data["orgs"][0]["id"]
 
     async def _headers(self) -> dict[str, str]:
         if not self._token:
             await self.login()
-        return {"Authorization": f"Bearer {self._token}"}
+        headers = {"Authorization": f"Bearer {self._token}"}
+        if self._org_id:
+            headers["X-Org-Id"] = self._org_id
+        return headers
 
     async def get(self, path: str) -> Any:
         async with httpx.AsyncClient(timeout=20) as client:
@@ -90,16 +95,24 @@ async def cmd_start(message: Message) -> None:
         "Control-бот платформы агентов.\n"
         "/agents — список\n"
         "/status — статусы\n"
-        "/cmd <agent_id> <action> [text] — команда\n"
-        "Или пришлите фото/видео с подписью: «поставь в историю»."
+        "/cmd <agent_id> <action> [text]\n"
+        "/notify — сохранить этот чат для уведомлений\n"
+        "Фото/видео + подпись «поставь в историю»."
     )
+
+
+@dp.message(Command("notify"))
+async def cmd_notify(message: Message) -> None:
+    chat_id = str(message.chat.id)
+    await api.post("/notifications/targets", {"channel": "telegram", "address": chat_id, "is_active": True})
+    await message.answer(f"Этот чат ({chat_id}) будет получать уведомления о событиях.")
 
 
 @dp.message(Command("agents"))
 async def cmd_agents(message: Message) -> None:
     agents = await api.get("/agents")
     if not agents:
-        await message.answer("Агентов пока нет. Добавьте через админ-панель.")
+        await message.answer("Агентов пока нет.")
         return
     lines = [f"• {a['name']} [{a['platform']}] — {a['status']} (`{a['id'][:8]}…`)" for a in agents]
     await message.answer("Агенты:\n" + "\n".join(lines))
@@ -123,7 +136,6 @@ async def cmd_command(message: Message) -> None:
         return
     _, agent_id, action, *rest = parts
     text = rest[0] if rest else ""
-    # Resolve short id prefix
     agents = await api.get("/agents")
     match = next((a for a in agents if a["id"].startswith(agent_id) or a["id"] == agent_id), None)
     if match is None:
@@ -133,7 +145,7 @@ async def cmd_command(message: Message) -> None:
         "/commands",
         {"agent_id": match["id"], "action": action, "payload": {"text": text}},
     )
-    await message.answer(f"Команда поставлена в очередь: job={job['id'][:8]}… status={job['status']}")
+    await message.answer(f"Очередь: job={job['id'][:8]}… status={job['status']}")
 
 
 @dp.message(F.photo | F.video | F.document | F.text)
@@ -145,14 +157,21 @@ async def media_or_text(message: Message) -> None:
         return
 
     agents = await api.get("/agents")
-    telegram_agents = [a for a in agents if a["platform"] == "telegram" and a.get("is_active")]
-    target = telegram_agents[0] if telegram_agents else (agents[0] if agents else None)
+    active = [a for a in agents if a.get("is_active")]
+    # Prefer platform mentioned in caption
+    target = None
+    lower = caption.lower()
+    for platform in ("instagram", "youtube", "telegram"):
+        if platform in lower:
+            target = next((a for a in active if a["platform"] == platform), None)
+            break
+    if target is None:
+        target = active[0] if active else (agents[0] if agents else None)
     if target is None:
         await message.answer("Нет активных агентов.")
         return
 
     action = parse_intent(caption)
-    # Media file_id as placeholder URL for MVP (real upload pipeline later)
     media_ref = None
     if message.photo:
         media_ref = message.photo[-1].file_id
@@ -168,7 +187,7 @@ async def media_or_text(message: Message) -> None:
         },
     )
     await message.answer(
-        f"→ агент *{target['name']}*\nдействие: `{action}`\njob: `{job['id'][:8]}…`",
+        f"→ *{target['name']}* (`{target['platform']}`)\nдействие: `{action}`\njob: `{job['id'][:8]}…`",
         parse_mode="Markdown",
     )
 
@@ -178,7 +197,7 @@ async def main() -> None:
         raise SystemExit("Set CONTROL_BOT_TOKEN env var")
     await api.login()
     bot = Bot(BOT_TOKEN)
-    logger.info("Control bot starting")
+    logger.info("Control bot starting org=%s", api._org_id)
     await dp.start_polling(bot)
 
 

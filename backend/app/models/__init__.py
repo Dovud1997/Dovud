@@ -4,6 +4,9 @@ from app.models.entities import (
     AgentLog,
     AgentSecret,
     CommandJob,
+    Membership,
+    NotificationTarget,
+    Organization,
     ReplyTemplate,
     StyleExample,
     User,
@@ -11,6 +14,9 @@ from app.models.entities import (
 
 __all__ = [
     "User",
+    "Organization",
+    "Membership",
+    "NotificationTarget",
     "Agent",
     "AgentSecret",
     "ReplyTemplate",

@@ -46,36 +46,87 @@ class JobStatus(str, enum.Enum):
     failed = "failed"
 
 
+class MemberRole(str, enum.Enum):
+    owner = "owner"
+    admin = "admin"
+    member = "member"
+
+
 class User(Base):
     __tablename__ = "users"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
+    display_name: Mapped[str] = mapped_column(String(120), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
-    agents: Mapped[list[Agent]] = relationship(back_populates="owner")
+    memberships: Mapped[list[Membership]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+
+class Organization(Base):
+    __tablename__ = "organizations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String(160))
+    slug: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    memberships: Mapped[list[Membership]] = relationship(back_populates="organization", cascade="all, delete-orphan")
+    agents: Mapped[list[Agent]] = relationship(back_populates="organization", cascade="all, delete-orphan")
+    notification_targets: Mapped[list[NotificationTarget]] = relationship(
+        back_populates="organization", cascade="all, delete-orphan"
+    )
+
+
+class Membership(Base):
+    __tablename__ = "memberships"
+    __table_args__ = (UniqueConstraint("user_id", "org_id", name="uq_membership_user_org"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    role: Mapped[MemberRole] = mapped_column(Enum(MemberRole), default=MemberRole.member)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    user: Mapped[User] = relationship(back_populates="memberships")
+    organization: Mapped[Organization] = relationship(back_populates="memberships")
+
+
+class NotificationTarget(Base):
+    __tablename__ = "notification_targets"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    channel: Mapped[str] = mapped_column(String(32), default="telegram")  # telegram | webhook
+    address: Mapped[str] = mapped_column(String(255))  # chat_id or webhook URL
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    organization: Mapped[Organization] = relationship(back_populates="notification_targets")
 
 
 class Agent(Base):
     __tablename__ = "agents"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     name: Mapped[str] = mapped_column(String(120))
     platform: Mapped[str] = mapped_column(String(64), index=True)
     status: Mapped[AgentStatus] = mapped_column(Enum(AgentStatus), default=AgentStatus.draft)
     status_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
     ai_mode: Mapped[AIMode] = mapped_column(Enum(AIMode), default=AIMode.off)
+    llm_provider: Mapped[str] = mapped_column(String(32), default="openai")  # openai | anthropic
     system_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
     zone: Mapped[str] = mapped_column(String(64), default="telegram")
     pos_x: Mapped[float] = mapped_column(Float, default=120.0)
     pos_y: Mapped[float] = mapped_column(Float, default=180.0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=False)
-    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
 
-    owner: Mapped[User] = relationship(back_populates="agents")
+    organization: Mapped[Organization] = relationship(back_populates="agents")
     secrets: Mapped[list[AgentSecret]] = relationship(back_populates="agent", cascade="all, delete-orphan")
     templates: Mapped[list[ReplyTemplate]] = relationship(back_populates="agent", cascade="all, delete-orphan")
     style_examples: Mapped[list[StyleExample]] = relationship(back_populates="agent", cascade="all, delete-orphan")

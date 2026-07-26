@@ -1,22 +1,46 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { api, login, wsSceneUrl, type Agent, type LogItem } from "./api";
+import {
+  api,
+  login,
+  register,
+  setOrgId,
+  wsSceneUrl,
+  type Agent,
+  type LogItem,
+  type Org,
+} from "./api";
 import { AgentForm } from "./components/AgentForm";
+import { AgentSettings } from "./components/AgentSettings";
 import { PixelScene } from "./components/PixelScene";
 import "./App.css";
 
 export default function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem("token"));
+  const [orgs, setOrgs] = useState<Org[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("orgs") || "[]") as Org[];
+    } catch {
+      return [];
+    }
+  });
+  const [currentOrg, setCurrentOrg] = useState(localStorage.getItem("org_id") || "");
+  const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("admin@example.com");
   const [password, setPassword] = useState("admin123");
+  const [orgName, setOrgName] = useState("My Studio");
   const [agents, setAgents] = useState<Agent[]>([]);
   const [logs, setLogs] = useState<LogItem[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [notifyChat, setNotifyChat] = useState("");
 
   const refresh = useCallback(async () => {
     const [a, l] = await Promise.all([api.agents(), api.logs()]);
     setAgents(a);
     setLogs(l);
-  }, []);
+    if (selectedId && !a.find((x) => x.id === selectedId)) setSelectedId(a[0]?.id ?? null);
+    if (!selectedId && a[0]) setSelectedId(a[0].id);
+  }, [selectedId]);
 
   useEffect(() => {
     if (!token) return;
@@ -24,7 +48,7 @@ export default function App() {
       localStorage.removeItem("token");
       setToken(null);
     });
-  }, [token, refresh]);
+  }, [token, currentOrg, refresh]);
 
   useEffect(() => {
     if (!token) return;
@@ -54,19 +78,8 @@ export default function App() {
                 : a,
             ),
           );
-          setLogs((prev) => [
-            {
-              id: crypto.randomUUID(),
-              agent_id: data.agent_id,
-              level: data.status === "error" ? "error" : "info",
-              message: data.status_message || data.status,
-              meta: null,
-              created_at: new Date().toISOString(),
-            },
-            ...prev,
-          ].slice(0, 150));
         }
-        if (data.type === "agent_event" || data.type === "job_update") {
+        if (data.type === "agent_event" || data.type === "job_update" || data.type === "notification") {
           api.logs().then(setLogs).catch(() => undefined);
         }
       };
@@ -80,26 +93,37 @@ export default function App() {
       if (retry) window.clearTimeout(retry);
       ws?.close();
     };
-  }, [token]);
+  }, [token, currentOrg]);
 
-  async function onLogin(e: FormEvent) {
+  async function onAuth(e: FormEvent) {
     e.preventDefault();
     setAuthError(null);
     try {
-      const t = await login(email, password);
-      setToken(t);
+      const data =
+        mode === "login"
+          ? await login(email, password)
+          : await register({ email, password, org_name: orgName });
+      setToken(data.access_token);
+      setOrgs(data.orgs);
+      setCurrentOrg(data.orgs[0]?.id || "");
     } catch (err) {
-      setAuthError(err instanceof Error ? err.message : "Login failed");
+      setAuthError(err instanceof Error ? err.message : "Auth failed");
     }
   }
+
+  const selected = agents.find((a) => a.id === selectedId) || null;
 
   if (!token) {
     return (
       <div className="login-shell">
-        <form className="login-card" onSubmit={onLogin}>
+        <form className="login-card" onSubmit={onAuth}>
           <p className="brand">DOVUD</p>
           <h1>Agent Ops</h1>
-          <p className="lede">Единая точка управления AI-агентами каналов.</p>
+          <p className="lede">Multi-tenant платформа AI-агентов каналов.</p>
+          <div className="row-actions">
+            <button type="button" className={mode === "login" ? "" : "ghost"} onClick={() => setMode("login")}>Вход</button>
+            <button type="button" className={mode === "register" ? "" : "ghost"} onClick={() => setMode("register")}>Регистрация</button>
+          </div>
           <label>
             Email
             <input value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -108,8 +132,14 @@ export default function App() {
             Password
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
           </label>
+          {mode === "register" && (
+            <label>
+              Организация
+              <input value={orgName} onChange={(e) => setOrgName(e.target.value)} />
+            </label>
+          )}
           {authError && <div className="banner bad">{authError}</div>}
-          <button type="submit">Войти</button>
+          <button type="submit">{mode === "login" ? "Войти" : "Создать аккаунт"}</button>
         </form>
       </div>
     );
@@ -122,15 +152,46 @@ export default function App() {
           <p className="brand">DOVUD</p>
           <h1>Agent World</h1>
         </div>
-        <button
-          className="ghost"
-          onClick={() => {
-            localStorage.removeItem("token");
-            setToken(null);
-          }}
-        >
-          Выйти
-        </button>
+        <div className="top-controls">
+          <label className="inline">
+            Org
+            <select
+              value={currentOrg}
+              onChange={(e) => {
+                setOrgId(e.target.value);
+                setCurrentOrg(e.target.value);
+              }}
+            >
+              {orgs.map((o) => (
+                <option key={o.id} value={o.id}>{o.name}</option>
+              ))}
+            </select>
+          </label>
+          <button
+            className="ghost"
+            onClick={async () => {
+              const name = prompt("Название новой организации");
+              if (!name) return;
+              const org = await api.createOrg(name);
+              const list = await api.orgs();
+              setOrgs(list);
+              localStorage.setItem("orgs", JSON.stringify(list));
+              setOrgId(org.id);
+              setCurrentOrg(org.id);
+            }}
+          >
+            + Org
+          </button>
+          <button
+            className="ghost"
+            onClick={() => {
+              localStorage.clear();
+              setToken(null);
+            }}
+          >
+            Выйти
+          </button>
+        </div>
       </header>
 
       <section className="scene-section">
@@ -140,13 +201,13 @@ export default function App() {
         <aside className="side-log panel">
           <header className="panel-head">
             <h2>Статусы / лог</h2>
-            <p>Realtime из WebSocket + журнал действий.</p>
+            <p>Realtime WebSocket + журнал.</p>
           </header>
           <ul className="status-list">
             {agents.map((a) => (
-              <li key={a.id}>
+              <li key={a.id} className={selectedId === a.id ? "active" : ""}>
                 <span className={`dot ${a.status}`} />
-                <div>
+                <div onClick={() => setSelectedId(a.id)} style={{ cursor: "pointer" }}>
                   <strong>{a.name}</strong>
                   <em>{a.platform} · {a.status}</em>
                   <small>{a.status_message || "—"}</small>
@@ -155,11 +216,14 @@ export default function App() {
                   {!a.is_active && (
                     <button className="ghost" onClick={() => api.activateAgent(a.id).then(refresh)}>On</button>
                   )}
+                  <button className="ghost" onClick={() => api.command(a.id, "test_connection").then(refresh)}>Ping</button>
                   <button
                     className="ghost"
-                    onClick={() => api.command(a.id, "test_connection").then(refresh)}
+                    onClick={() =>
+                      api.simulateEvent(a.id, "message", { text: "Привет! Есть вопрос по прайсу" }).then(refresh)
+                    }
                   >
-                    Ping
+                    Event
                   </button>
                 </div>
               </li>
@@ -177,19 +241,20 @@ export default function App() {
         </aside>
       </section>
 
-      <section className="bottom-grid">
+      <section className="bottom-grid three">
         <AgentForm onCreated={refresh} />
+        <AgentSettings agent={selected} onChanged={refresh} />
         <div className="panel">
           <header className="panel-head">
-            <h2>Агенты</h2>
-            <p>Активные модули и быстрые команды MVP.</p>
+            <h2>Агенты и уведомления</h2>
+            <p>Быстрые команды и Telegram notify chat_id.</p>
           </header>
           <ul className="agent-table">
             {agents.map((a) => (
               <li key={a.id}>
-                <div>
+                <div onClick={() => setSelectedId(a.id)} style={{ cursor: "pointer" }}>
                   <strong>{a.name}</strong>
-                  <span>{a.id.slice(0, 8)}… · AI: {a.ai_mode}</span>
+                  <span>{a.platform} · AI: {a.ai_mode}/{a.llm_provider}</span>
                 </div>
                 <button
                   className="ghost"
@@ -197,11 +262,30 @@ export default function App() {
                     api.command(a.id, "publish_post", { text: "MVP test post from admin" }).then(refresh)
                   }
                 >
-                  Publish test
+                  Publish
                 </button>
               </li>
             ))}
           </ul>
+          <div className="stack-form" style={{ marginTop: "1rem" }}>
+            <input
+              value={notifyChat}
+              onChange={(e) => setNotifyChat(e.target.value)}
+              placeholder="Telegram chat_id для уведомлений"
+            />
+            <button
+              type="button"
+              className="ghost"
+              onClick={async () => {
+                if (!notifyChat.trim()) return;
+                await api.createNotificationTarget("telegram", notifyChat.trim());
+                setNotifyChat("");
+                alert("Notification target сохранён");
+              }}
+            >
+              Сохранить notify target
+            </button>
+          </div>
         </div>
       </section>
     </div>

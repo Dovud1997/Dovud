@@ -17,12 +17,12 @@ from app.agents.base import (
 
 
 class Plugin(BaseAgentPlugin):
-    """MVP Telegram agent: validates token via getMe, executes basic actions."""
+    """Telegram agent: validates token via getMe, executes basic actions, supports demo tokens."""
 
     manifest = PluginManifest(
         platform="telegram",
         title="Telegram Agent",
-        description="Агент для Telegram-бота/канала.",
+        description="Агент для Telegram-бота/канала: тест соединения, статус, события и команды публикации.",
         zone="telegram",
         actions=["test_connection", "send_message", "publish_post", "publish_story", "reply"],
         fields=[
@@ -32,8 +32,8 @@ class Plugin(BaseAgentPlugin):
                 type="password",
                 required=True,
                 secret=True,
-                help="Токен от @BotFather",
-                placeholder="123456:ABC-DEF...",
+                help="Токен от @BotFather (или demo:local для локальных тестов)",
+                placeholder="123456:ABC-DEF... или demo:local",
             ),
             FieldSpec(
                 key="chat_id",
@@ -56,12 +56,21 @@ class Plugin(BaseAgentPlugin):
     def _token(self) -> str:
         return self.credentials.get("bot_token", "").strip()
 
+    @property
+    def _demo(self) -> bool:
+        return self._token.startswith("demo:") or self._token == "DEMO"
+
     def _api(self, method: str) -> str:
         return f"https://api.telegram.org/bot{self._token}/{method}"
 
     async def connect(self) -> ConnectResult:
         if not self._token:
             return ConnectResult(ok=False, message="bot_token is required")
+        if self._demo:
+            self._connected = True
+            self._me = {"username": "demo_bot", "id": 0}
+            return ConnectResult(ok=True, message="Connected as @demo_bot (demo mode)", meta={"bot": self._me})
+
         try:
             async with httpx.AsyncClient(timeout=15) as client:
                 resp = await client.get(self._api("getMe"))
@@ -75,11 +84,7 @@ class Plugin(BaseAgentPlugin):
         self._me = data.get("result", {})
         self._connected = True
         username = self._me.get("username", "?")
-        return ConnectResult(
-            ok=True,
-            message=f"Connected as @{username}",
-            meta={"bot": self._me},
-        )
+        return ConnectResult(ok=True, message=f"Connected as @{username}", meta={"bot": self._me})
 
     async def execute_action(self, action: str, payload: dict[str, Any]) -> ActionResult:
         if action in {"test_connection", "connect"}:
@@ -90,9 +95,15 @@ class Plugin(BaseAgentPlugin):
         text = str(payload.get("text") or payload.get("caption") or "").strip()
         media_url = payload.get("media_url")
 
+        if self._demo:
+            return ActionResult(
+                ok=True,
+                message=f"[demo] {action} → chat={chat_id or 'n/a'}: {text[:120]}",
+                data={"dry_run": True, "demo": True, "action": action, "text": text, "media_url": media_url},
+            )
+
         if action in {"send_message", "reply", "publish_post"}:
             if not chat_id:
-                # Dry-run for MVP when chat_id not configured.
                 return ActionResult(
                     ok=True,
                     message=f"[dry-run] {action}: no chat_id; would send: {text[:120]}",
@@ -124,21 +135,19 @@ class Plugin(BaseAgentPlugin):
             return ActionResult(ok=True, message="Message sent", data=data.get("result", {}))
 
         if action == "publish_story":
-            # Telegram Bot API has limited Stories support; MVP records intent.
             return ActionResult(
                 ok=True,
-                message="[mvp] Stories API stub — command accepted, publish via channel post recommended",
+                message="[mvp] Stories API stub — command accepted",
                 data={"action": action, "media_url": media_url, "text": text, "chat_id": chat_id},
             )
 
         return ActionResult(ok=False, message=f"Unsupported action: {action}")
 
     async def listen_events(self) -> AsyncIterator[AgentEventDTO]:
-        # Long-polling can be wired in a dedicated worker later.
         if False:  # pragma: no cover
             yield AgentEventDTO(type="message", payload={}, summary="")
         return
-        yield  # make this an async generator type for type checkers
+        yield
 
     async def get_status(self) -> AgentStatusDTO:
         if not self._token:

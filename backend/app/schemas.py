@@ -9,11 +9,35 @@ from pydantic import BaseModel, EmailStr, Field
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    user_id: str
+    email: str
+    orgs: list["OrgOut"] = Field(default_factory=list)
 
 
 class LoginIn(BaseModel):
     email: EmailStr
     password: str
+
+
+class RegisterIn(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=6)
+    display_name: str = ""
+    org_name: str = Field(min_length=2, max_length=160)
+
+
+class OrgOut(BaseModel):
+    id: str
+    name: str
+    slug: str
+    role: str
+
+    model_config = {"from_attributes": True}
+
+
+class OrgCreateIn(BaseModel):
+    name: str = Field(min_length=2, max_length=160)
+    slug: str | None = None
 
 
 class FieldSpecOut(BaseModel):
@@ -40,6 +64,7 @@ class AgentCreateIn(BaseModel):
     platform: str
     credentials: dict[str, str] = Field(default_factory=dict)
     ai_mode: str = "off"
+    llm_provider: str = "openai"
     system_prompt: str | None = None
     activate: bool = False
 
@@ -48,6 +73,7 @@ class AgentUpdateIn(BaseModel):
     name: str | None = None
     credentials: dict[str, str] | None = None
     ai_mode: str | None = None
+    llm_provider: str | None = None
     system_prompt: str | None = None
     is_active: bool | None = None
     pos_x: float | None = None
@@ -56,11 +82,13 @@ class AgentUpdateIn(BaseModel):
 
 class AgentOut(BaseModel):
     id: str
+    org_id: str
     name: str
     platform: str
     status: str
     status_message: str | None
     ai_mode: str
+    llm_provider: str
     system_prompt: str | None
     zone: str
     pos_x: float
@@ -164,3 +192,38 @@ class SceneAgentOut(BaseModel):
     pos_x: float
     pos_y: float
     is_active: bool
+
+
+class SimulateEventIn(BaseModel):
+    type: str = Field(description="message | like | follow | unfollow | comment")
+    payload: dict[str, Any] = Field(default_factory=dict)
+    auto_reply: bool = True
+
+
+class NotificationTargetIn(BaseModel):
+    channel: str = "telegram"
+    address: str
+    is_active: bool = True
+
+
+class NotificationTargetOut(BaseModel):
+    id: str
+    org_id: str
+    channel: str
+    address: str
+    is_active: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AutoReplyPreviewIn(BaseModel):
+    message: str
+
+
+class AutoReplyPreviewOut(BaseModel):
+    reply: str | None
+    mode: str
+
+
+TokenOut.model_rebuild()

@@ -11,6 +11,7 @@ export function AgentForm({ onCreated }: Props) {
   const [name, setName] = useState("");
   const [credentials, setCredentials] = useState<Record<string, string>>({});
   const [aiMode, setAiMode] = useState("off");
+  const [llmProvider, setLlmProvider] = useState("openai");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [testMsg, setTestMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -43,17 +44,17 @@ export function AgentForm({ onCreated }: Props) {
     }
   }
 
-  async function onSubmit(e: FormEvent, activate: boolean) {
-    e.preventDefault();
+  async function submit(activate: boolean) {
     if (!selected) return;
     setBusy(true);
     setError(null);
     try {
       await api.createAgent({
-        name: name || `${selected.title}`,
+        name: name || selected.title,
         platform,
         credentials,
         ai_mode: aiMode,
+        llm_provider: llmProvider,
         system_prompt: systemPrompt || null,
         activate,
       });
@@ -70,15 +71,27 @@ export function AgentForm({ onCreated }: Props) {
   }
 
   return (
-    <form className="panel form" onSubmit={(e) => onSubmit(e, false)}>
+    <form
+      className="panel form"
+      onSubmit={(e: FormEvent) => {
+        e.preventDefault();
+        void submit(false);
+      }}
+    >
       <header className="panel-head">
         <h2>Новый агент</h2>
-        <p>Выберите платформу, введите данные подключения, протестируйте и активируйте.</p>
+        <p>Платформа → данные → тест → активация. Для локальных тестов: `demo:local`.</p>
       </header>
 
       <label>
         Платформа
-        <select value={platform} onChange={(e) => { setPlatform(e.target.value); setCredentials({}); }}>
+        <select
+          value={platform}
+          onChange={(e) => {
+            setPlatform(e.target.value);
+            setCredentials({});
+          }}
+        >
           {platforms.map((p) => (
             <option key={p.platform} value={p.platform}>{p.title}</option>
           ))}
@@ -95,34 +108,34 @@ export function AgentForm({ onCreated }: Props) {
       {selected?.fields.map((field) => (
         <label key={field.key}>
           {field.label}
-          {field.type === "textarea" ? (
-            <textarea
-              value={credentials[field.key] || ""}
-              required={field.required}
-              placeholder={field.placeholder}
-              onChange={(e) => setCredentials((c) => ({ ...c, [field.key]: e.target.value }))}
-            />
-          ) : (
-            <input
-              type={field.type === "password" ? "password" : "text"}
-              value={credentials[field.key] || ""}
-              required={field.required}
-              placeholder={field.placeholder}
-              onChange={(e) => setCredentials((c) => ({ ...c, [field.key]: e.target.value }))}
-            />
-          )}
+          <input
+            type={field.type === "password" ? "password" : "text"}
+            value={credentials[field.key] || ""}
+            required={field.required}
+            placeholder={field.placeholder}
+            onChange={(e) => setCredentials((c) => ({ ...c, [field.key]: e.target.value }))}
+          />
           {field.help && <span className="hint">{field.help}</span>}
         </label>
       ))}
 
-      <label>
-        Режим автоответа
-        <select value={aiMode} onChange={(e) => setAiMode(e.target.value)}>
-          <option value="off">Выкл</option>
-          <option value="template">Шаблон</option>
-          <option value="llm">LLM (стиль пользователя)</option>
-        </select>
-      </label>
+      <div className="two-col">
+        <label>
+          Режим автоответа
+          <select value={aiMode} onChange={(e) => setAiMode(e.target.value)}>
+            <option value="off">Выкл</option>
+            <option value="template">Шаблон</option>
+            <option value="llm">LLM (стиль)</option>
+          </select>
+        </label>
+        <label>
+          LLM-провайдер
+          <select value={llmProvider} onChange={(e) => setLlmProvider(e.target.value)}>
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+          </select>
+        </label>
+      </div>
 
       <label>
         AI-инструкция (промпт)
@@ -140,9 +153,7 @@ export function AgentForm({ onCreated }: Props) {
       <div className="row-actions">
         <button type="button" className="ghost" disabled={busy} onClick={onTest}>Тест соединения</button>
         <button type="submit" className="ghost" disabled={busy}>Сохранить черновик</button>
-        <button type="button" disabled={busy} onClick={(e) => onSubmit(e as unknown as FormEvent, true)}>
-          Активировать
-        </button>
+        <button type="button" disabled={busy} onClick={() => void submit(true)}>Активировать</button>
       </div>
     </form>
   );

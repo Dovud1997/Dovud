@@ -6,7 +6,7 @@
 | Язык / фреймворк | **Python 3.12 + FastAPI** | Асинхронность из коробки, WebSocket, удобная интеграция с LLM и Telegram SDK, быстрый прототип REST API |
 | ORM | **SQLAlchemy 2.x + Alembic** | Единый код для SQLite (MVP) и PostgreSQL (прод) |
 | Валидация | **Pydantic v2** | Схемы API и конфигов агентов |
-| Очередь задач | **Redis + ARQ** (прод) / **asyncio in-process** (MVP) | ARQ нативно async, проще Celery для FastAPI; для локального MVP без Redis — in-process worker с тем же интерфейсом |
+| Очередь задач | **Redis + ARQ** (`QUEUE_BACKEND=arq`) / **asyncio in-process** (default) | Общий интерфейс `TaskQueue`; ARQ с fallback на in-process если Redis недоступен |
 | Шифрование секретов | **Fernet (cryptography)** | Симметричное шифрование токенов в БД; ключ из `SECRET_ENCRYPTION_KEY` |
 | Auth | **JWT (python-jose)** | Простая защита админ API на первом этапе |
 
@@ -26,7 +26,7 @@
 ## AI / автоответы
 | Компонент | Выбор | Почему |
 |-----------|--------|--------|
-| LLM | **OpenAI-compatible client** (OpenAI / Anthropic via proxy) | Единый адаптер; провайдер задаётся env |
+| LLM | **OpenAI + Anthropic** (переключение per-agent / env) | Нативный Messages API Anthropic + OpenAI chat completions |
 | Режим ответа | Шаблоны **или** LLM + few-shot примеры | Пользователь выбирает стратегию на агенте |
 
 ## Инфраструктура (прод)

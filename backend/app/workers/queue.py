@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any
+from typing import Protocol
 
 from sqlalchemy import select
 
 from app.agents.registry import get_registry
+from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.core.security import decrypt_secret
 from app.models.entities import (
@@ -26,20 +26,26 @@ from app.services.events import event_hub
 
 logger = logging.getLogger(__name__)
 
-JobHandler = Callable[[str], Awaitable[None]]
+
+class TaskQueue(Protocol):
+    async def start(self) -> None: ...
+    async def stop(self) -> None: ...
+    async def enqueue_job(self, job_id: str) -> None: ...
 
 
 @dataclass
 class InProcessQueue:
-    """MVP async queue. Swap for ARQ/Redis in production via same enqueue API."""
+    """MVP async queue. Production can swap to ArqQueue via QUEUE_BACKEND=arq."""
 
-    _queue: asyncio.Queue[str] = field(default_factory=asyncio.Queue)
+    _queue: asyncio.Queue[str] | None = None
     _worker_task: asyncio.Task[None] | None = None
     _running: bool = False
 
     async def start(self) -> None:
         if self._running:
             return
+        # Recreate queue in the current event loop (important for pytest).
+        self._queue = asyncio.Queue()
         self._running = True
         self._worker_task = asyncio.create_task(self._loop(), name="inprocess-queue-worker")
 
@@ -49,18 +55,26 @@ class InProcessQueue:
             self._worker_task.cancel()
             try:
                 await self._worker_task
-            except asyncio.CancelledError:
+            except (asyncio.CancelledError, RuntimeError):
                 pass
             self._worker_task = None
+        self._queue = None
 
     async def enqueue_job(self, job_id: str) -> None:
+        if self._queue is None:
+            await self.start()
+        assert self._queue is not None
         await self._queue.put(job_id)
 
     async def _loop(self) -> None:
+        assert self._queue is not None
+        queue = self._queue
         while self._running:
             try:
-                job_id = await asyncio.wait_for(self._queue.get(), timeout=1.0)
-            except TimeoutError:
+                job_id = await asyncio.wait_for(queue.get(), timeout=1.0)
+            except (TimeoutError, asyncio.CancelledError):
+                if not self._running:
+                    break
                 continue
             try:
                 await process_command_job(job_id)
@@ -68,7 +82,46 @@ class InProcessQueue:
                 logger.exception("Failed processing job %s", job_id)
 
 
-task_queue = InProcessQueue()
+class ArqQueue:
+    """
+    Redis/ARQ-backed queue.
+    Requires `arq` and a running Redis. Falls back to in-process enqueue of local processing
+    if Redis is unavailable at enqueue time.
+    """
+
+    def __init__(self, redis_url: str) -> None:
+        self.redis_url = redis_url
+        self._fallback = InProcessQueue()
+        self._redis = None
+
+    async def start(self) -> None:
+        try:
+            from arq import create_pool
+            from arq.connections import RedisSettings
+
+            self._redis = await create_pool(RedisSettings.from_dsn(self.redis_url))
+            logger.info("ARQ queue connected to %s", self.redis_url)
+        except Exception:  # noqa: BLE001
+            logger.warning("ARQ unavailable, using in-process fallback", exc_info=True)
+            self._redis = None
+            await self._fallback.start()
+
+    async def stop(self) -> None:
+        if self._redis is not None:
+            await self._redis.close()
+            self._redis = None
+        await self._fallback.stop()
+
+    async def enqueue_job(self, job_id: str) -> None:
+        if self._redis is None:
+            await self._fallback.enqueue_job(job_id)
+            return
+        try:
+            await self._redis.enqueue_job("process_command_job_arq", job_id)
+        except Exception:  # noqa: BLE001
+            logger.exception("ARQ enqueue failed, fallback in-process")
+            await self._fallback.start()
+            await self._fallback.enqueue_job(job_id)
 
 
 async def process_command_job(job_id: str) -> None:
@@ -159,11 +212,15 @@ async def process_command_job(job_id: str) -> None:
         await event_hub.publish({"type": "job_update", "job_id": job.id, "status": job.status.value})
 
 
-async def load_agent_credentials(agent_id: str) -> dict[str, str]:
-    async with SessionLocal() as db:
-        result = await db.execute(select(Agent).where(Agent.id == agent_id))
-        agent = result.scalar_one_or_none()
-        if agent is None:
-            return {}
-        await db.refresh(agent, attribute_names=["secrets"])
-        return {s.key: decrypt_secret(s.value_encrypted) for s in agent.secrets}
+def build_queue() -> TaskQueue:
+    settings = get_settings()
+    if settings.queue_backend == "arq":
+        return ArqQueue(settings.redis_url)
+    return InProcessQueue()
+
+
+task_queue: TaskQueue = build_queue()
+
+
+async def process_command_job_arq(ctx, job_id: str) -> None:  # noqa: ANN001
+    await process_command_job(job_id)
