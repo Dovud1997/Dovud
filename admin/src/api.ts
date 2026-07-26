@@ -179,6 +179,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ channel, address, is_active: true }),
     }),
+  setTelegramWebhook: (agent_id: string) =>
+    request<{ ok: boolean; url: string }>(`/agents/${agent_id}/telegram/set-webhook`, { method: "POST" }),
+  listenerStatus: () =>
+    request<{ enabled: boolean; running: boolean; active_pollers: string[] }>("/telegram/listener-status"),
 };
 
 export function setOrgId(id: string) {

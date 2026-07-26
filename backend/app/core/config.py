@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     queue_backend: str = "inprocess"  # inprocess | arq
     redis_url: str = "redis://127.0.0.1:6379/0"
     public_base_url: str = "http://127.0.0.1:8000"
+    telegram_listen_enabled: bool = True
+    telegram_webhook_secret: str = ""  # optional X-Telegram-Bot-Api-Secret-Token
 
     @property
     def cors_origin_list(self) -> list[str]:

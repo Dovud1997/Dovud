@@ -1,12 +1,16 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from typing import Any
+
+import httpx
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.agents.registry import get_registry
 from app.api.deps import get_current_org, get_current_user
+from app.core.config import get_settings
 from app.core.db import SessionLocal, get_db
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.entities import (
@@ -52,6 +56,7 @@ from app.schemas import (
 from app.services import agents as agent_service
 from app.services import orgs as org_service
 from app.services.events import event_hub
+from app.services.telegram_updates import process_telegram_update
 
 router = APIRouter()
 
@@ -532,6 +537,75 @@ async def ws_scene(websocket: WebSocket) -> None:
             await websocket.send_json(event)
     except WebSocketDisconnect:
         return
+
+
+@router.post("/webhooks/telegram/{agent_id}")
+async def telegram_webhook(
+    agent_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    x_telegram_bot_api_secret_token: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """Inbound Telegram webhook (no JWT). Optional secret via TELEGRAM_WEBHOOK_SECRET."""
+    settings = get_settings()
+    if settings.telegram_webhook_secret:
+        if x_telegram_bot_api_secret_token != settings.telegram_webhook_secret:
+            raise HTTPException(status_code=403, detail="Invalid webhook secret")
+
+    agent = await db.get(Agent, agent_id)
+    if agent is None or agent.platform != "telegram":
+        raise HTTPException(status_code=404, detail="Telegram agent not found")
+    if not agent.is_active:
+        return {"ok": True, "ignored": True, "reason": "agent_inactive"}
+
+    update = await request.json()
+    return await process_telegram_update(db, agent=agent, update=update, auto_reply=True)
+
+
+@router.post("/agents/{agent_id}/telegram/set-webhook")
+async def set_telegram_webhook(
+    agent_id: str,
+    db: AsyncSession = Depends(get_db),
+    org: Organization = Depends(get_current_org),
+) -> dict[str, Any]:
+    """Register Telegram webhook URL for this agent (disables long-polling for that bot)."""
+    agent = await _org_agent(db, org.id, agent_id)
+    if agent.platform != "telegram":
+        raise HTTPException(status_code=400, detail="Not a telegram agent")
+
+    creds = await agent_service.get_credentials(db, agent.id)
+    token = creds.get("bot_token", "")
+    if not token or token.startswith("demo:"):
+        raise HTTPException(status_code=400, detail="Real bot_token required")
+
+    settings = get_settings()
+    url = f"{settings.public_base_url.rstrip('/')}/api/webhooks/telegram/{agent.id}"
+    payload: dict[str, Any] = {
+        "url": url,
+        "allowed_updates": ["message", "callback_query", "channel_post"],
+        "drop_pending_updates": False,
+    }
+    if settings.telegram_webhook_secret:
+        payload["secret_token"] = settings.telegram_webhook_secret
+
+    async with httpx.AsyncClient(timeout=20) as client:
+        resp = await client.post(f"https://api.telegram.org/bot{token}/setWebhook", json=payload)
+        data = resp.json()
+    if not data.get("ok"):
+        raise HTTPException(status_code=400, detail=data.get("description", "setWebhook failed"))
+    return {"ok": True, "url": url, "telegram": data}
+
+
+@router.get("/telegram/listener-status")
+async def telegram_listener_status(_: User = Depends(get_current_user)) -> dict[str, Any]:
+    from app.workers.telegram_listener import telegram_listener
+
+    return {
+        "enabled": get_settings().telegram_listen_enabled,
+        "running": telegram_listener._running,
+        "active_pollers": list(telegram_listener._agent_tasks.keys()),
+        "offsets": telegram_listener._offsets,
+    }
 
 
 async def _org_agent(db: AsyncSession, org_id: str, agent_id: str) -> Agent:

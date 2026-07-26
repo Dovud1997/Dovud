@@ -92,3 +92,47 @@ async def test_register_multi_tenant(client: AsyncClient):
     )
     assert r.status_code == 200, r.text
     assert r.json()["orgs"][0]["name"] == "Studio One"
+
+
+@pytest.mark.asyncio
+async def test_telegram_webhook_inbound(client: AsyncClient):
+    login = await client.post("/api/auth/login", json={"email": "admin@example.com", "password": "admin123"})
+    token = login.json()["access_token"]
+    org_id = login.json()["orgs"][0]["id"]
+    h = {"Authorization": f"Bearer {token}", "X-Org-Id": org_id}
+
+    created = await client.post(
+        "/api/agents",
+        headers=h,
+        json={
+            "name": "TG Hook",
+            "platform": "telegram",
+            "credentials": {"bot_token": "demo:hook"},
+            "ai_mode": "off",
+            "activate": True,
+        },
+    )
+    assert created.status_code == 200, created.text
+    agent_id = created.json()["id"]
+
+    # Public webhook — no JWT
+    hook = await client.post(
+        f"/api/webhooks/telegram/{agent_id}",
+        json={
+            "update_id": 1001,
+            "message": {
+                "message_id": 7,
+                "text": "webhook hello",
+                "chat": {"id": 42},
+                "from": {"id": 1, "username": "hookuser"},
+            },
+        },
+    )
+    assert hook.status_code == 200, hook.text
+    body = hook.json()
+    assert body["ok"] is True
+    assert body["type"] == "message"
+
+    status = await client.get("/api/telegram/listener-status", headers=h)
+    assert status.status_code == 200
+    assert status.json()["enabled"] is True

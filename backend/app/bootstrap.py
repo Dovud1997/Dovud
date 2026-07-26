@@ -10,6 +10,7 @@ from app.core.db import SessionLocal, engine, init_db
 from app.core.security import hash_password
 from app.models.entities import MemberRole, Membership, Organization, User
 from app.workers.queue import task_queue
+from app.workers.telegram_listener import telegram_listener
 
 
 async def _sqlite_needs_reset() -> bool:
@@ -66,7 +67,9 @@ async def startup() -> None:
         await db.commit()
 
     await task_queue.start()
+    await telegram_listener.start()
 
 
 async def shutdown() -> None:
+    await telegram_listener.stop()
     await task_queue.stop()

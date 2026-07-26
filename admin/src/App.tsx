@@ -256,14 +256,31 @@ export default function App() {
                   <strong>{a.name}</strong>
                   <span>{a.platform} · AI: {a.ai_mode}/{a.llm_provider}</span>
                 </div>
-                <button
-                  className="ghost"
-                  onClick={() =>
-                    api.command(a.id, "publish_post", { text: "MVP test post from admin" }).then(refresh)
-                  }
-                >
-                  Publish
-                </button>
+                <div className="mini-actions">
+                  <button
+                    className="ghost"
+                    onClick={() =>
+                      api.command(a.id, "publish_post", { text: "MVP test post from admin" }).then(refresh)
+                    }
+                  >
+                    Publish
+                  </button>
+                  {a.platform === "telegram" && a.is_active && (
+                    <button
+                      className="ghost"
+                      onClick={async () => {
+                        try {
+                          const res = await api.setTelegramWebhook(a.id);
+                          alert(`Webhook: ${res.url}`);
+                        } catch (e) {
+                          alert(e instanceof Error ? e.message : "setWebhook failed");
+                        }
+                      }}
+                    >
+                      Webhook
+                    </button>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

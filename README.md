@@ -37,11 +37,21 @@ npm run dev
 ```
 
 ### Control-бот
+Положите **новый** токен только в локальный `backend/.env` (не в чат и не в git):
+```env
+CONTROL_BOT_TOKEN=...
+```
 ```bash
-export CONTROL_BOT_TOKEN=...
-cd backend && python -m bot.control_bot
+./scripts/control-bot.sh
+# или: cd backend && python -m bot.control_bot
 ```
 Команда `/notify` привязывает чат к уведомлениям организации.
+
+### Telegram inbound
+- **Long-polling** включается автоматически для активных Telegram-агентов (не demo).
+- **Webhook** (если есть публичный URL): кнопка Webhook в админке или  
+  `POST /api/agents/{id}/telegram/set-webhook`  
+  URL: `{PUBLIC_BASE_URL}/api/webhooks/telegram/{agent_id}`
 
 ### Тесты
 ```bash
