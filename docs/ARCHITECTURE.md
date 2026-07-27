@@ -1,0 +1,123 @@
+# Архитектура платформы AI-агентов
+
+## Принципы
+1. **Ядро не знает о платформах** — Instagram/Telegram/YouTube подключаются как плагины.
+2. **Единый контракт агента** — `connect`, `execute_action`, `listen_events`, `get_status`, `disconnect`.
+3. **Конфиги через админку** — токены и инструкции в БД (секреты зашифрованы), не в коде.
+4. **Одна точка управления** — REST + WebSocket; control Telegram-бот и будущий mobile — клиенты этого API.
+5. **Realtime-сцена** — статусы агентов пушатся по WebSocket в пиксельный дашборд.
+
+## Высокоуровневая схема
+
+```
+┌─────────────┐   ┌──────────────┐   ┌────────────────┐
+│ Admin Web   │   │ Telegram     │   │ Mobile (later) │
+│ (pixel UI)  │   │ Control Bot  │   │                │
+└──────┬──────┘   └──────┬───────┘   └───────┬────────┘
+       │ REST/WS         │ REST              │ REST/WS
+       └─────────────────┼───────────────────┘
+                         ▼
+              ┌────────────────────┐
+              │   API Gateway      │
+              │   (FastAPI)        │
+              └─────────┬──────────┘
+         ┌──────────────┼──────────────┐
+         ▼              ▼              ▼
+   ┌──────────┐  ┌────────────┐  ┌─────────────┐
+   │ Config / │  │ Task Queue │  │ Event Hub   │
+   │ Secrets  │  │ (ARQ/IP)   │  │ (WS + DB)   │
+   └──────────┘  └─────┬──────┘  └─────────────┘
+                       ▼
+              ┌────────────────────┐
+              │  Agent Registry    │
+              │  + Plugin Loader   │
+              └─────────┬──────────┘
+        ┌───────────────┼───────────────┐
+        ▼               ▼               ▼
+   ┌─────────┐    ┌──────────┐    ┌──────────┐
+   │Telegram │    │Instagram │    │ YouTube  │
+   │ Plugin  │    │ Graph API│    │ Data API │
+   └─────────┘    └──────────┘    └──────────┘
+```
+
+### Медиа → Instagram
+1. Control-бот получает фото/видео из Telegram.
+2. Скачивает файл Bot API → `POST /api/media/upload`.
+3. Платформа сохраняет в `backend/media/` и отдаёт `{PUBLIC_BASE_URL}/media/{file}`.
+4. Команда `publish_story` / `publish_post` → Instagram plugin:
+   container (`/{ig-user-id}/media`) → (wait FINISHED для video) → `media_publish`.
+5. Результат → Event Hub → WS-сцена + notification targets.
+
+## Плагинная модель
+Новая платформа = пакет в `backend/plugins/<name>/` с:
+- `manifest.json` — id, название, поля формы подключения
+- `plugin.py` — класс, реализующий `BaseAgentPlugin`
+- авторегистрация через `AgentRegistry.discover()`
+
+Ядро **не меняется** при добавлении Instagram/YouTube — только новый плагин + запись в registry.
+
+## Контракт агента
+
+```python
+class BaseAgentPlugin(Protocol):
+    platform: str
+
+    async def connect(self, credentials: dict) -> ConnectResult: ...
+    async def execute_action(self, action: str, payload: dict) -> ActionResult: ...
+    async def listen_events(self) -> AsyncIterator[AgentEvent]: ...
+    async def get_status(self) -> AgentStatus: ...
+    async def disconnect(self) -> None: ...
+```
+
+## Потоки данных
+
+### Команда из control-бота
+1. Пользователь шлёт фото + «поставь в историю Instagram».
+2. Бот парсит intent → `POST /api/commands`.
+3. API кладёт задачу в очередь.
+4. Worker берёт задачу → `registry.get(agent).execute_action(...)`.
+5. Результат → событие в Event Hub → уведомление в бот + WS в админку.
+
+### Событие с платформы
+1. Плагин получает webhook/poll (лайк, сообщение).
+2. Публикует `AgentEvent` в Event Hub.
+3. Если включён автоответ — очередь задачи `auto_reply` (template или LLM).
+4. Клиенты получают уведомление.
+
+## Структура репозитория
+
+```
+/
+├── docs/                 # Стек, архитектура, схема данных
+├── backend/
+│   ├── app/
+│   │   ├── api/          # REST + WebSocket
+│   │   ├── agents/       # Base + Registry (ядро)
+│   │   ├── core/         # config, db, security
+│   │   ├── models/       # SQLAlchemy
+│   │   ├── services/     # business logic
+│   │   ├── workers/      # queue + job runners
+│   │   └── llm/          # LLM adapter
+│   ├── plugins/          # Платформенные агенты (плагины)
+│   │   └── telegram/
+│   └── bot/              # Control Telegram-бот
+├── admin/                # Vite React админ-панель
+├── mobile/               # Placeholder
+└── docker-compose.yml    # Прод-скелет
+```
+
+## Multi-tenant
+- `Organization` + `Membership` (роли owner/admin/member).
+- API scoped через заголовок `X-Org-Id`.
+- Регистрация создаёт пользователя и его первую организацию.
+
+## Плагины MVP+
+- `telegram` — боевой connect/send + demo-токены `demo:*`
+- `instagram` — Graph API connect + demo/stub publish
+- `youtube` — Data API connect + demo/stub actions
+
+## Допущения
+- SQLite по умолчанию; PostgreSQL через `DATABASE_URL`.
+- In-process очередь по умолчанию; ARQ/Redis опционально.
+- Пиксельная сцена: Canvas 2D, зоны платформ, спрайты со статусом.
+- Mobile — заготовка (`mobile/`).

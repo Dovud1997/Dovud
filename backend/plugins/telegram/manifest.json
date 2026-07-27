@@ -1,0 +1,27 @@
+{
+  "platform": "telegram",
+  "title": "Telegram Agent",
+  "description": "Агент для Telegram-бота/канала: тест соединения, статус, эмуляция событий и команд публикации.",
+  "zone": "telegram",
+  "actions": ["test_connection", "send_message", "publish_post", "publish_story", "reply"],
+  "fields": [
+    {
+      "key": "bot_token",
+      "label": "Bot Token",
+      "type": "password",
+      "required": true,
+      "secret": true,
+      "help": "Токен от @BotFather",
+      "placeholder": "123456:ABC-DEF..."
+    },
+    {
+      "key": "chat_id",
+      "label": "Default Chat / Channel ID",
+      "type": "text",
+      "required": false,
+      "secret": false,
+      "help": "Куда публиковать по умолчанию (опционально)",
+      "placeholder": "-1001234567890"
+    }
+  ]
+}
