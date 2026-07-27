@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -38,6 +38,7 @@ from app.schemas import (
     JobOut,
     LoginIn,
     LogOut,
+    MediaOut,
     NotificationTargetIn,
     NotificationTargetOut,
     OrgCreateIn,
@@ -56,6 +57,7 @@ from app.schemas import (
 from app.services import agents as agent_service
 from app.services import orgs as org_service
 from app.services.events import event_hub
+from app.services.media import save_bytes
 from app.services.telegram_updates import process_telegram_update
 
 router = APIRouter()
@@ -291,6 +293,28 @@ async def create_command(
         db, agent_id=body.agent_id, action=body.action, payload=body.payload
     )
     return JobOut.model_validate(job)
+
+
+@router.post("/media/upload", response_model=MediaOut)
+async def upload_media(
+    file: UploadFile = File(...),
+    _: Organization = Depends(get_current_org),
+) -> MediaOut:
+    """Store media and return a public URL for Instagram/Telegram publish."""
+    data = await file.read()
+    if len(data) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large (max 50MB)")
+    try:
+        saved = save_bytes(data, filename=file.filename, content_type=file.content_type)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return MediaOut(
+        id=saved["id"],
+        filename=saved["filename"],
+        content_type=saved["content_type"],
+        public_url=saved["public_url"],
+        media_kind=saved["media_kind"],
+    )
 
 
 @router.get("/jobs", response_model=list[JobOut])

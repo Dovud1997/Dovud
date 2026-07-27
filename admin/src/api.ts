@@ -148,8 +148,30 @@ export const api = {
   logs: () => request<LogItem[]>("/logs"),
   events: () => request<LogItem[]>("/events").catch(() => []),
   scene: () => request<Agent[]>("/scene"),
-  command: (agent_id: string, action: string, payload: Record<string, unknown> = {}) =>
+  command: (
+    agent_id: string,
+    action: string,
+    payload: Record<string, unknown> = {},
+  ) =>
     request("/commands", { method: "POST", body: JSON.stringify({ agent_id, action, payload }) }),
+  uploadMedia: async (file: File) => {
+    const token = localStorage.getItem("token");
+    const oid = orgId();
+    const headers: Record<string, string> = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+    if (oid) headers["X-Org-Id"] = oid;
+    const body = new FormData();
+    body.append("file", file);
+    const res = await fetch(`${API_BASE}/media/upload`, { method: "POST", headers, body });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json() as Promise<{
+      id: string;
+      filename: string;
+      content_type: string;
+      public_url: string;
+      media_kind: string;
+    }>;
+  },
   simulateEvent: (agent_id: string, type: string, payload: Record<string, unknown> = {}) =>
     request(`/agents/${agent_id}/simulate-event`, {
       method: "POST",

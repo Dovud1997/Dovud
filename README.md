@@ -9,10 +9,13 @@
 ## Возможности
 - Multi-tenant организации + регистрация
 - Плагины: Telegram / Instagram / YouTube
+- **Instagram Content Publishing** — posts / Stories / Reels через Graph API
+- Медиа-хостинг (`POST /api/media/upload` → `/media/{file}`) для публичных URL
+- Control-бот: фото/видео → загрузка на платформу → publish на Instagram
 - Очередь задач (in-process или Redis/ARQ)
 - Автоответы: шаблоны или LLM (OpenAI / Anthropic)
 - Уведомления в Telegram / webhook
-- Админка: форма агента, AI-настройки, пиксельная сцена, лог
+- Админка: форма агента, AI-настройки, пиксельная сцена, лог, Media publish
 
 ## Быстрый старт
 
@@ -52,6 +55,12 @@ CONTROL_BOT_TOKEN=...
 - **Webhook** (если есть публичный URL): кнопка Webhook в админке или  
   `POST /api/agents/{id}/telegram/set-webhook`  
   URL: `{PUBLIC_BASE_URL}/api/webhooks/telegram/{agent_id}`
+
+### Instagram publish
+1. Создайте Instagram-агента (access token + `ig_user_id`; для UI: `demo:local`).
+2. Укажите **публичный** `PUBLIC_BASE_URL` (Meta должна достучаться до `/media/...`).
+3. Из control-бота: фото + «поставь в историю Instagram» — бот скачает файл, зальёт на платформу и поставит `publish_story`.
+4. Из админки: кнопка **Media** у агента — URL или выбор файла.
 
 ### Тесты
 ```bash

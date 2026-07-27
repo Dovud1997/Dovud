@@ -28,7 +28,7 @@ ORG_ID = os.getenv("PLATFORM_ORG_ID", "")
 
 INTENT_MAP = [
     (re.compile(r"истори", re.I), "publish_story"),
-    (re.compile(r"пост|опублик", re.I), "publish_post"),
+    (re.compile(r"пост|опублик|reel", re.I), "publish_post"),
     (re.compile(r"ответ|reply", re.I), "reply"),
     (re.compile(r"сообщ|send", re.I), "send_message"),
 ]
@@ -51,12 +51,14 @@ class PlatformClient:
             if not self._org_id and data.get("orgs"):
                 self._org_id = data["orgs"][0]["id"]
 
-    async def _headers(self) -> dict[str, str]:
+    async def _headers(self, *, json_body: bool = True) -> dict[str, str]:
         if not self._token:
             await self.login()
         headers = {"Authorization": f"Bearer {self._token}"}
         if self._org_id:
             headers["X-Org-Id"] = self._org_id
+        if json_body:
+            headers["Content-Type"] = "application/json"
         return headers
 
     async def get(self, path: str) -> Any:
@@ -77,9 +79,22 @@ class PlatformClient:
             resp.raise_for_status()
             return resp.json()
 
+    async def upload_media(self, data: bytes, filename: str, content_type: str | None = None) -> dict[str, Any]:
+        headers = await self._headers(json_body=False)
+        files = {"file": (filename, data, content_type or "application/octet-stream")}
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(f"{API_BASE}/media/upload", headers=headers, files=files)
+            if resp.status_code == 401:
+                await self.login()
+                headers = await self._headers(json_body=False)
+                resp = await client.post(f"{API_BASE}/media/upload", headers=headers, files=files)
+            resp.raise_for_status()
+            return resp.json()
+
 
 api = PlatformClient()
 dp = Dispatcher()
+bot_ref: Bot | None = None
 
 
 def parse_intent(text: str) -> str:
@@ -87,6 +102,41 @@ def parse_intent(text: str) -> str:
         if pattern.search(text):
             return action
     return "publish_post"
+
+
+async def resolve_telegram_media(message: Message) -> dict[str, Any] | None:
+    """Download Telegram media and re-host on the platform for Instagram Graph API."""
+    assert bot_ref is not None
+    file_id = None
+    filename = "media.bin"
+    content_type = None
+    if message.photo:
+        file_id = message.photo[-1].file_id
+        filename = "photo.jpg"
+        content_type = "image/jpeg"
+    elif message.video:
+        file_id = message.video.file_id
+        filename = message.video.file_name or "video.mp4"
+        content_type = message.video.mime_type or "video/mp4"
+    elif message.document:
+        file_id = message.document.file_id
+        filename = message.document.file_name or "document.bin"
+        content_type = message.document.mime_type
+    if not file_id:
+        return None
+
+    tg_file = await bot_ref.get_file(file_id)
+    if not tg_file.file_path:
+        return None
+    buf = await bot_ref.download_file(tg_file.file_path)
+    data = buf.read() if hasattr(buf, "read") else bytes(buf)
+    uploaded = await api.upload_media(data, filename=filename, content_type=content_type)
+    return {
+        "media_url": uploaded["public_url"],
+        "media_kind": uploaded.get("media_kind"),
+        "is_video": uploaded.get("media_kind") == "video",
+        "telegram_file_id": file_id,
+    }
 
 
 @dp.message(Command("start"))
@@ -97,7 +147,7 @@ async def cmd_start(message: Message) -> None:
         "/status — статусы\n"
         "/cmd <agent_id> <action> [text]\n"
         "/notify — сохранить этот чат для уведомлений\n"
-        "Фото/видео + подпись «поставь в историю»."
+        "Фото/видео + подпись «поставь в историю Instagram»."
     )
 
 
@@ -153,7 +203,7 @@ async def media_or_text(message: Message) -> None:
     caption = message.caption or message.text or ""
     if caption.startswith("/"):
         return
-    if not caption and not (message.photo or message.video):
+    if not caption and not (message.photo or message.video or message.document):
         return
 
     agents = await api.get("/agents")
@@ -165,6 +215,9 @@ async def media_or_text(message: Message) -> None:
         if platform in lower:
             target = next((a for a in active if a["platform"] == platform), None)
             break
+    # Default media publish → Instagram when available
+    if target is None and (message.photo or message.video or message.document):
+        target = next((a for a in active if a["platform"] == "instagram"), None)
     if target is None:
         target = active[0] if active else (agents[0] if agents else None)
     if target is None:
@@ -172,33 +225,45 @@ async def media_or_text(message: Message) -> None:
         return
 
     action = parse_intent(caption)
-    media_ref = None
-    if message.photo:
-        media_ref = message.photo[-1].file_id
-    elif message.video:
-        media_ref = message.video.file_id
+    payload: dict[str, Any] = {"text": caption, "source": "control_bot"}
+
+    if message.photo or message.video or message.document:
+        try:
+            media = await resolve_telegram_media(message)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Media resolve failed")
+            await message.answer(f"Не удалось загрузить медиа: {exc}")
+            return
+        if media:
+            payload.update(media)
+        else:
+            await message.answer("Медиафайл пуст или недоступен.")
+            return
 
     job = await api.post(
         "/commands",
         {
             "agent_id": target["id"],
             "action": action,
-            "payload": {"text": caption, "media_url": media_ref, "source": "control_bot"},
+            "payload": payload,
         },
     )
+    media_note = f"\nmedia: `{payload.get('media_url')}`" if payload.get("media_url") else ""
     await message.answer(
-        f"→ *{target['name']}* (`{target['platform']}`)\nдействие: `{action}`\njob: `{job['id'][:8]}…`",
+        f"→ *{target['name']}* (`{target['platform']}`)\n"
+        f"действие: `{action}`\njob: `{job['id'][:8]}…`{media_note}",
         parse_mode="Markdown",
     )
 
 
 async def main() -> None:
+    global bot_ref
     if not BOT_TOKEN:
         raise SystemExit("Set CONTROL_BOT_TOKEN env var")
     await api.login()
-    bot = Bot(BOT_TOKEN)
+    bot_ref = Bot(BOT_TOKEN)
     logger.info("Control bot starting org=%s", api._org_id)
-    await dp.start_polling(bot)
+    await dp.start_polling(bot_ref)
 
 
 if __name__ == "__main__":

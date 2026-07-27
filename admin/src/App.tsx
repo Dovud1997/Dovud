@@ -263,8 +263,40 @@ export default function App() {
                       api.command(a.id, "publish_post", { text: "MVP test post from admin" }).then(refresh)
                     }
                   >
-                    Publish
+                    Post
                   </button>
+                  {(a.platform === "instagram" || a.platform === "telegram") && (
+                    <button
+                      className="ghost"
+                      onClick={async () => {
+                        const mediaUrl = prompt(
+                          "Публичный URL медиа (или оставьте пустым и выберите файл)",
+                        );
+                        let url = mediaUrl?.trim() || "";
+                        if (!url) {
+                          const input = document.createElement("input");
+                          input.type = "file";
+                          input.accept = "image/*,video/*";
+                          const file = await new Promise<File | null>((resolve) => {
+                            input.onchange = () => resolve(input.files?.[0] ?? null);
+                            input.click();
+                          });
+                          if (!file) return;
+                          const uploaded = await api.uploadMedia(file);
+                          url = uploaded.public_url;
+                        }
+                        const asStory = confirm("Опубликовать как Stories? (Cancel = обычный пост)");
+                        await api.command(a.id, asStory ? "publish_story" : "publish_post", {
+                          text: "Publish from DOVUD admin",
+                          media_url: url,
+                          is_video: /\.(mp4|mov|m4v)(\?|$)/i.test(url),
+                        });
+                        await refresh();
+                      }}
+                    >
+                      Media
+                    </button>
+                  )}
                   {a.platform === "telegram" && a.is_active && (
                     <button
                       className="ghost"

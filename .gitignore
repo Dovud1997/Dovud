@@ -3,7 +3,9 @@ __pycache__/
 .venv/
 venv/
 .env
+backend/.env
 backend/data/
+backend/media/
 *.db
 .pytest_cache/
 .mypy_cache/

@@ -36,9 +36,17 @@
         ▼               ▼               ▼
    ┌─────────┐    ┌──────────┐    ┌──────────┐
    │Telegram │    │Instagram │    │ YouTube  │
-   │ Plugin  │    │ (future) │    │ (future) │
+   │ Plugin  │    │ Graph API│    │ Data API │
    └─────────┘    └──────────┘    └──────────┘
 ```
+
+### Медиа → Instagram
+1. Control-бот получает фото/видео из Telegram.
+2. Скачивает файл Bot API → `POST /api/media/upload`.
+3. Платформа сохраняет в `backend/media/` и отдаёт `{PUBLIC_BASE_URL}/media/{file}`.
+4. Команда `publish_story` / `publish_post` → Instagram plugin:
+   container (`/{ig-user-id}/media`) → (wait FINISHED для video) → `media_publish`.
+5. Результат → Event Hub → WS-сцена + notification targets.
 
 ## Плагинная модель
 Новая платформа = пакет в `backend/plugins/<name>/` с:

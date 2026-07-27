@@ -1,0 +1,27 @@
+{
+  "platform": "instagram",
+  "title": "Instagram Agent",
+  "description": "Агент Instagram (Graph API): stories/posts, комментарии.",
+  "zone": "instagram",
+  "actions": ["test_connection", "publish_post", "publish_story", "reply"],
+  "fields": [
+    {
+      "key": "access_token",
+      "label": "Access Token",
+      "type": "password",
+      "required": true,
+      "secret": true,
+      "help": "Long-lived Instagram Graph API token (или demo:local)",
+      "placeholder": "EAAB... или demo:local"
+    },
+    {
+      "key": "ig_user_id",
+      "label": "Instagram Business User ID",
+      "type": "text",
+      "required": true,
+      "secret": false,
+      "help": "ID бизнес-аккаунта Instagram",
+      "placeholder": "17841..."
+    }
+  ]
+}

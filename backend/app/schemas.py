@@ -226,4 +226,12 @@ class AutoReplyPreviewOut(BaseModel):
     mode: str
 
 
+class MediaOut(BaseModel):
+    id: str
+    filename: str
+    content_type: str
+    public_url: str
+    media_kind: str
+
+
 TokenOut.model_rebuild()
