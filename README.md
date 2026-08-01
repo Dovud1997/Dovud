@@ -47,26 +47,23 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
   -d '{"tenant_code":"demo","email":"admin@demo.local","password":"Admin123!"}'
 ```
 
-## P0 delivered
+## Delivered
 
-**Backend**
+**P0 — Identity / White Label / RBAC**
+- Modules: `identity`, `tenant`
+- JWT + refresh, RBAC, branding, seed demo users
 
-- Clean Architecture modules: `identity`, `tenant`
-- JWT access + rotating refresh tokens
-- RBAC permissions/roles/users APIs
-- White-label public branding + admin branding/domains
-- Seed data, AutoMigrate, SQL migrations for Postgres
-- Unit/integration tests for auth
+**P1 — Organization / Catalog / CRM**
+- Modules: `organization`, `catalog`, `crm`
+- Companies, branches, warehouses + stocks
+- Manufacturers, categories, products, price lists, promotions
+- Customers, contacts, addresses, customer categories
+- Demo seed: HQ branch, warehouse, product+price, demo customer
+- Flutter lists: Branches, Products, Customers
 
-**Frontend**
+## Next (P2)
 
-- Flutter app skeleton under `frontend/sfa_app`
-- Login, session, branding theme, dashboard shell
-- i18n ARB: Russian, Uzbek, English
-
-## Next (P1)
-
-Organization (companies/branches/warehouses) · Catalog · CRM
+FieldForce (agents, routes, visits, GPS, photos) · Orders foundation
 
 ## Locales & themes
 
