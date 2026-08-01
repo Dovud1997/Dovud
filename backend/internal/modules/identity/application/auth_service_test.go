@@ -7,6 +7,9 @@ import (
 
 	"github.com/Dovud1997/Dovud/backend/internal/modules/identity/application"
 	identitypersist "github.com/Dovud1997/Dovud/backend/internal/modules/identity/infrastructure/persistence"
+	catalogpersist "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/infrastructure/persistence"
+	crmpersist "github.com/Dovud1997/Dovud/backend/internal/modules/crm/infrastructure/persistence"
+	orgpersist "github.com/Dovud1997/Dovud/backend/internal/modules/organization/infrastructure/persistence"
 	tenantpersist "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/infrastructure/persistence"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/auth"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/config"
@@ -35,11 +38,25 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&identitypersist.UserRoleModel{},
 		&identitypersist.RefreshTokenModel{},
 		&identitypersist.UserDeviceModel{},
+		&orgpersist.CompanyModel{},
+		&orgpersist.BranchModel{},
+		&orgpersist.WarehouseModel{},
+		&orgpersist.WarehouseStockModel{},
+		&catalogpersist.ManufacturerModel{},
+		&catalogpersist.CategoryModel{},
+		&catalogpersist.ProductModel{},
+		&catalogpersist.PriceListModel{},
+		&catalogpersist.ProductPriceModel{},
+		&catalogpersist.PromotionModel{},
+		&catalogpersist.PromotionItemModel{},
+		&crmpersist.CustomerCategoryModel{},
+		&crmpersist.CustomerModel{},
+		&crmpersist.CustomerContactModel{},
+		&crmpersist.CustomerAddressModel{},
 	); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	if err := seed.Run(context.Background(), db, nil); err != nil {
-		// seed uses slog - pass a discard logger; nil might panic
 		t.Fatalf("seed: %v", err)
 	}
 	return db

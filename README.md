@@ -2,7 +2,7 @@
 
 White Label SaaS platform for sales force automation — multi-tenant, offline-capable, enterprise-ready.
 
-**Status:** P0 implementation in progress (Identity · Tenant/Branding · RBAC · Flutter shell)
+**Status:** P1 delivered (Organization · Catalog · CRM) on top of P0 Identity/RBAC/Branding
 
 ## Architecture
 

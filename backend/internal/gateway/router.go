@@ -1,7 +1,10 @@
 package gateway
 
 import (
+	cataloghttp "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/interfaces/http"
+	crmhttp "github.com/Dovud1997/Dovud/backend/internal/modules/crm/interfaces/http"
 	identityhttp "github.com/Dovud1997/Dovud/backend/internal/modules/identity/interfaces/http"
+	orghttp "github.com/Dovud1997/Dovud/backend/internal/modules/organization/interfaces/http"
 	tenanthttp "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/interfaces/http"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/auth"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/httpx"
@@ -11,9 +14,12 @@ import (
 )
 
 type Deps struct {
-	TokenService  *auth.TokenService
-	Identity      *identityhttp.Handler
-	Tenant        *tenanthttp.Handler
+	TokenService *auth.TokenService
+	Identity     *identityhttp.Handler
+	Tenant       *tenanthttp.Handler
+	Organization *orghttp.Handler
+	Catalog      *cataloghttp.Handler
+	CRM          *crmhttp.Handler
 }
 
 func NewRouter(deps Deps) *fiber.App {
@@ -36,6 +42,9 @@ func NewRouter(deps Deps) *fiber.App {
 	protected := v1.Group("", httpx.AuthMiddleware(deps.TokenService))
 	deps.Identity.RegisterProtected(protected)
 	deps.Tenant.RegisterProtected(protected)
+	deps.Organization.Register(protected)
+	deps.Catalog.Register(protected)
+	deps.CRM.Register(protected)
 
 	return app
 }

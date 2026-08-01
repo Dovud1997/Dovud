@@ -1,0 +1,15 @@
+DROP TABLE IF EXISTS customer_addresses;
+DROP TABLE IF EXISTS customer_contacts;
+DROP TABLE IF EXISTS customers;
+DROP TABLE IF EXISTS customer_categories;
+DROP TABLE IF EXISTS promotion_items;
+DROP TABLE IF EXISTS promotions;
+DROP TABLE IF EXISTS product_prices;
+DROP TABLE IF EXISTS price_lists;
+DROP TABLE IF EXISTS warehouse_stocks;
+DROP TABLE IF EXISTS products;
+DROP TABLE IF EXISTS categories;
+DROP TABLE IF EXISTS manufacturers;
+DROP TABLE IF EXISTS warehouses;
+DROP TABLE IF EXISTS branches;
+DROP TABLE IF EXISTS companies;

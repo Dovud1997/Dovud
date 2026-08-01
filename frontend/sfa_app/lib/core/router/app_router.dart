@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sfa_app/features/auth/presentation/auth_controller.dart';
 import 'package:sfa_app/features/auth/presentation/login_page.dart';
+import 'package:sfa_app/features/catalog/presentation/products_page.dart';
+import 'package:sfa_app/features/crm/presentation/customers_page.dart';
 import 'package:sfa_app/features/dashboard/presentation/dashboard_page.dart';
+import 'package:sfa_app/features/organization/presentation/branches_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final session = ref.watch(sessionControllerProvider);
@@ -20,6 +23,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
       GoRoute(path: '/dashboard', builder: (context, state) => const DashboardPage()),
+      GoRoute(path: '/products', builder: (context, state) => const ProductsPage()),
+      GoRoute(path: '/customers', builder: (context, state) => const CustomersPage()),
+      GoRoute(path: '/branches', builder: (context, state) => const BranchesPage()),
     ],
     errorBuilder: (context, state) => Scaffold(
       body: Center(child: Text(state.error.toString())),

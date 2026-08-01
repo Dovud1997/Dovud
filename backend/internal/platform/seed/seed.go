@@ -5,8 +5,14 @@ import (
 	"log/slog"
 	"strings"
 
+	catalogdomain "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/domain"
+	catalogpersist "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/infrastructure/persistence"
+	crmdomain "github.com/Dovud1997/Dovud/backend/internal/modules/crm/domain"
+	crmpersist "github.com/Dovud1997/Dovud/backend/internal/modules/crm/infrastructure/persistence"
 	identitydomain "github.com/Dovud1997/Dovud/backend/internal/modules/identity/domain"
 	identitypersist "github.com/Dovud1997/Dovud/backend/internal/modules/identity/infrastructure/persistence"
+	orgdomain "github.com/Dovud1997/Dovud/backend/internal/modules/organization/domain"
+	orgpersist "github.com/Dovud1997/Dovud/backend/internal/modules/organization/infrastructure/persistence"
 	tenantdomain "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/domain"
 	tenantpersist "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/infrastructure/persistence"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/auth"
@@ -141,6 +147,137 @@ func Run(ctx context.Context, db *gorm.DB, log *slog.Logger) error {
 		log.Info("seeded agent user", "email", agent.Email, "password", "Agent123!")
 	}
 
+	if err := seedBusinessDemo(ctx, db, tenant.ID, log); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func seedBusinessDemo(ctx context.Context, db *gorm.DB, tenantID uuid.UUID, log *slog.Logger) error {
+	companyRepo := orgpersist.NewCompanyRepo(db)
+	branchRepo := orgpersist.NewBranchRepo(db)
+	warehouseRepo := orgpersist.NewWarehouseRepo(db)
+	manufacturerRepo := catalogpersist.NewManufacturerRepo(db)
+	categoryRepo := catalogpersist.NewCategoryRepo(db)
+	productRepo := catalogpersist.NewProductRepo(db)
+	priceRepo := catalogpersist.NewPriceRepo(db)
+	customerRepo := crmpersist.NewCustomerRepo(db)
+	contactRepo := crmpersist.NewCustomerContactRepo(db)
+
+	companies, _, err := companyRepo.List(ctx, tenantID, 1, 1)
+	if err != nil {
+		return err
+	}
+	var companyID uuid.UUID
+	if len(companies) == 0 {
+		c := &orgdomain.Company{TenantID: tenantID, Code: "HQ", Name: "Demo HQ", Status: "active"}
+		if err := companyRepo.Create(ctx, c); err != nil {
+			return err
+		}
+		companyID = c.ID
+		log.Info("seeded company", "code", c.Code)
+	} else {
+		companyID = companies[0].ID
+	}
+
+	branches, _, err := branchRepo.List(ctx, tenantID, 1, 1)
+	if err != nil {
+		return err
+	}
+	var branchID uuid.UUID
+	if len(branches) == 0 {
+		addr := "Tashkent, Demo Street 1"
+		lat, lng := 41.3111, 69.2797
+		b := &orgdomain.Branch{TenantID: tenantID, CompanyID: &companyID, Code: "TAS-01", Name: "Tashkent Branch", Address: &addr, Lat: &lat, Lng: &lng, Status: "active"}
+		if err := branchRepo.Create(ctx, b); err != nil {
+			return err
+		}
+		branchID = b.ID
+		w := &orgdomain.Warehouse{TenantID: tenantID, BranchID: branchID, Code: "WH-01", Name: "Main Warehouse", Type: "main", Status: "active"}
+		if err := warehouseRepo.Create(ctx, w); err != nil {
+			return err
+		}
+		log.Info("seeded branch and warehouse", "branch", b.Code)
+	} else {
+		branchID = branches[0].ID
+	}
+
+	manufacturers, _, err := manufacturerRepo.List(ctx, tenantID, 1, 1)
+	if err != nil {
+		return err
+	}
+	var manufacturerID uuid.UUID
+	if len(manufacturers) == 0 {
+		m := &catalogdomain.Manufacturer{TenantID: tenantID, Code: "ACME", Name: "Acme Foods", Status: "active"}
+		if err := manufacturerRepo.Create(ctx, m); err != nil {
+			return err
+		}
+		manufacturerID = m.ID
+	} else {
+		manufacturerID = manufacturers[0].ID
+	}
+
+	categories, err := categoryRepo.List(ctx, tenantID)
+	if err != nil {
+		return err
+	}
+	var categoryID uuid.UUID
+	if len(categories) == 0 {
+		cat := &catalogdomain.Category{TenantID: tenantID, Code: "BEV", Name: "Beverages", SortOrder: 1}
+		if err := categoryRepo.Create(ctx, cat); err != nil {
+			return err
+		}
+		categoryID = cat.ID
+	} else {
+		categoryID = categories[0].ID
+	}
+
+	products, _, err := productRepo.List(ctx, tenantID, "", 1, 1)
+	if err != nil {
+		return err
+	}
+	var productID uuid.UUID
+	if len(products) == 0 {
+		p := &catalogdomain.Product{
+			TenantID: tenantID, SKU: "SKU-1001", Name: "Demo Cola 0.5L",
+			CategoryID: &categoryID, ManufacturerID: &manufacturerID, Unit: "pcs", VATRate: 12, IsActive: true,
+		}
+		if err := productRepo.Create(ctx, p); err != nil {
+			return err
+		}
+		productID = p.ID
+		pl := &catalogdomain.PriceList{TenantID: tenantID, Code: "STD", Name: "Standard", Currency: "UZS", IsDefault: true}
+		if err := priceRepo.CreatePriceList(ctx, pl); err != nil {
+			return err
+		}
+		if err := priceRepo.UpsertPrice(ctx, &catalogdomain.ProductPrice{
+			TenantID: tenantID, PriceListID: pl.ID, ProductID: productID, Amount: 8500, Currency: "UZS",
+		}); err != nil {
+			return err
+		}
+		log.Info("seeded catalog", "sku", p.SKU)
+	}
+
+	customers, _, err := customerRepo.List(ctx, tenantID, 1, 1)
+	if err != nil {
+		return err
+	}
+	if len(customers) == 0 {
+		addr := "Chilonzor, Market 12"
+		lat, lng := 41.2856, 69.2034
+		cust := &crmdomain.Customer{
+			TenantID: tenantID, BranchID: &branchID, Code: "C-100", Name: "Demo Market",
+			Type: "outlet", Status: "active", CreditLimit: 5000000, Address: &addr, Lat: &lat, Lng: &lng,
+		}
+		if err := customerRepo.Create(ctx, cust); err != nil {
+			return err
+		}
+		_ = contactRepo.Create(ctx, &crmdomain.CustomerContact{
+			CustomerID: cust.ID, FullName: "Dilshod Karimov", Phone: "+998901112233", IsPrimary: true,
+		})
+		log.Info("seeded customer", "code", cust.Code)
+	}
 	return nil
 }
 

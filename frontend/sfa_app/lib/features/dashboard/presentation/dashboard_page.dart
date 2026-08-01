@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:sfa_app/features/auth/presentation/auth_controller.dart';
 
 class DashboardPage extends ConsumerWidget {
@@ -46,19 +47,59 @@ class DashboardPage extends ConsumerWidget {
                 Chip(label: Text(role)),
             ],
           ),
-          const SizedBox(height: 24),
-          Text('Permissions', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Text(
-            (user?.permissions ?? const []).take(12).join(' · '),
-            style: theme.textTheme.bodyMedium,
+          const SizedBox(height: 28),
+          Text('Modules', style: theme.textTheme.titleLarge),
+          const SizedBox(height: 12),
+          _ModuleTile(
+            icon: Icons.store_mall_directory_outlined,
+            title: 'Branches',
+            subtitle: 'Organization structure',
+            onTap: () => context.push('/branches'),
           ),
-          const SizedBox(height: 32),
-          Text(
-            'P0 shell ready. Next: catalog, CRM, field routes, offline sync.',
-            style: theme.textTheme.bodyLarge,
+          _ModuleTile(
+            icon: Icons.inventory_2_outlined,
+            title: 'Products',
+            subtitle: 'Catalog & SKUs',
+            onTap: () => context.push('/products'),
+          ),
+          _ModuleTile(
+            icon: Icons.people_alt_outlined,
+            title: 'Customers',
+            subtitle: 'CRM outlets & contacts',
+            onTap: () => context.push('/customers'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ModuleTile extends StatelessWidget {
+  const _ModuleTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: ListTile(
+        onTap: onTap,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        tileColor: theme.colorScheme.surface,
+        leading: Icon(icon, color: theme.colorScheme.primary),
+        title: Text(title),
+        subtitle: Text(subtitle),
+        trailing: const Icon(Icons.chevron_right),
       ),
     );
   }

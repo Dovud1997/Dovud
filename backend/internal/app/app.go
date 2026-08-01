@@ -6,9 +6,18 @@ import (
 	"log/slog"
 
 	"github.com/Dovud1997/Dovud/backend/internal/gateway"
+	catalogapp "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/application"
+	catalogpersist "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/infrastructure/persistence"
+	cataloghttp "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/interfaces/http"
+	crmapp "github.com/Dovud1997/Dovud/backend/internal/modules/crm/application"
+	crmpersist "github.com/Dovud1997/Dovud/backend/internal/modules/crm/infrastructure/persistence"
+	crmhttp "github.com/Dovud1997/Dovud/backend/internal/modules/crm/interfaces/http"
 	identityapp "github.com/Dovud1997/Dovud/backend/internal/modules/identity/application"
 	identitypersist "github.com/Dovud1997/Dovud/backend/internal/modules/identity/infrastructure/persistence"
 	identityhttp "github.com/Dovud1997/Dovud/backend/internal/modules/identity/interfaces/http"
+	orgapp "github.com/Dovud1997/Dovud/backend/internal/modules/organization/application"
+	orgpersist "github.com/Dovud1997/Dovud/backend/internal/modules/organization/infrastructure/persistence"
+	orghttp "github.com/Dovud1997/Dovud/backend/internal/modules/organization/interfaces/http"
 	tenantapp "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/application"
 	tenantpersist "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/infrastructure/persistence"
 	tenanthttp "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/interfaces/http"
@@ -59,17 +68,35 @@ func New(cfgPath string) (*Application, error) {
 	brandingRepo := tenantpersist.NewBrandingRepo(db)
 	domainRepo := tenantpersist.NewDomainRepo(db)
 
+	companyRepo := orgpersist.NewCompanyRepo(db)
+	branchRepo := orgpersist.NewBranchRepo(db)
+	warehouseRepo := orgpersist.NewWarehouseRepo(db)
+
+	manufacturerRepo := catalogpersist.NewManufacturerRepo(db)
+	categoryRepo := catalogpersist.NewCategoryRepo(db)
+	productRepo := catalogpersist.NewProductRepo(db)
+	priceRepo := catalogpersist.NewPriceRepo(db)
+	promotionRepo := catalogpersist.NewPromotionRepo(db)
+
+	customerRepo := crmpersist.NewCustomerRepo(db)
+	contactRepo := crmpersist.NewCustomerContactRepo(db)
+	addressRepo := crmpersist.NewCustomerAddressRepo(db)
+	customerCategoryRepo := crmpersist.NewCustomerCategoryRepo(db)
+
 	authSvc := identityapp.NewAuthService(userRepo, refreshRepo, deviceRepo, tenantRepo, tokenSvc)
 	rbacSvc := identityapp.NewRBACService(userRepo, roleRepo)
 	tenantSvc := tenantapp.NewTenantService(tenantRepo, brandingRepo, domainRepo)
-
-	identityHandler := identityhttp.NewHandler(authSvc, rbacSvc)
-	tenantHandler := tenanthttp.NewHandler(tenantSvc)
+	orgSvc := orgapp.NewService(companyRepo, branchRepo, warehouseRepo)
+	catalogSvc := catalogapp.NewService(manufacturerRepo, categoryRepo, productRepo, priceRepo, promotionRepo)
+	crmSvc := crmapp.NewService(customerRepo, contactRepo, addressRepo, customerCategoryRepo)
 
 	router := gateway.NewRouter(gateway.Deps{
 		TokenService: tokenSvc,
-		Identity:     identityHandler,
-		Tenant:       tenantHandler,
+		Identity:     identityhttp.NewHandler(authSvc, rbacSvc),
+		Tenant:       tenanthttp.NewHandler(tenantSvc),
+		Organization: orghttp.NewHandler(orgSvc),
+		Catalog:      cataloghttp.NewHandler(catalogSvc),
+		CRM:          crmhttp.NewHandler(crmSvc),
 	})
 
 	return &Application{Cfg: cfg, Log: log, DB: db, Router: router}, nil
@@ -87,6 +114,21 @@ func autoMigrate(db *gorm.DB) error {
 		&identitypersist.UserRoleModel{},
 		&identitypersist.RefreshTokenModel{},
 		&identitypersist.UserDeviceModel{},
+		&orgpersist.CompanyModel{},
+		&orgpersist.BranchModel{},
+		&orgpersist.WarehouseModel{},
+		&orgpersist.WarehouseStockModel{},
+		&catalogpersist.ManufacturerModel{},
+		&catalogpersist.CategoryModel{},
+		&catalogpersist.ProductModel{},
+		&catalogpersist.PriceListModel{},
+		&catalogpersist.ProductPriceModel{},
+		&catalogpersist.PromotionModel{},
+		&catalogpersist.PromotionItemModel{},
+		&crmpersist.CustomerCategoryModel{},
+		&crmpersist.CustomerModel{},
+		&crmpersist.CustomerContactModel{},
+		&crmpersist.CustomerAddressModel{},
 	)
 }
 
