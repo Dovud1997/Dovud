@@ -4,6 +4,7 @@ import (
 	cataloghttp "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/interfaces/http"
 	crmhttp "github.com/Dovud1997/Dovud/backend/internal/modules/crm/interfaces/http"
 	identityhttp "github.com/Dovud1997/Dovud/backend/internal/modules/identity/interfaces/http"
+	ordershttp "github.com/Dovud1997/Dovud/backend/internal/modules/orders/interfaces/http"
 	orghttp "github.com/Dovud1997/Dovud/backend/internal/modules/organization/interfaces/http"
 	tenanthttp "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/interfaces/http"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/auth"
@@ -20,6 +21,7 @@ type Deps struct {
 	Organization *orghttp.Handler
 	Catalog      *cataloghttp.Handler
 	CRM          *crmhttp.Handler
+	Orders       *ordershttp.Handler
 }
 
 func NewRouter(deps Deps) *fiber.App {
@@ -45,6 +47,7 @@ func NewRouter(deps Deps) *fiber.App {
 	deps.Organization.Register(protected)
 	deps.Catalog.Register(protected)
 	deps.CRM.Register(protected)
+	deps.Orders.Register(protected)
 
 	return app
 }

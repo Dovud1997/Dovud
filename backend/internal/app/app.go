@@ -15,6 +15,9 @@ import (
 	identityapp "github.com/Dovud1997/Dovud/backend/internal/modules/identity/application"
 	identitypersist "github.com/Dovud1997/Dovud/backend/internal/modules/identity/infrastructure/persistence"
 	identityhttp "github.com/Dovud1997/Dovud/backend/internal/modules/identity/interfaces/http"
+	ordersapp "github.com/Dovud1997/Dovud/backend/internal/modules/orders/application"
+	orderspersist "github.com/Dovud1997/Dovud/backend/internal/modules/orders/infrastructure/persistence"
+	ordershttp "github.com/Dovud1997/Dovud/backend/internal/modules/orders/interfaces/http"
 	orgapp "github.com/Dovud1997/Dovud/backend/internal/modules/organization/application"
 	orgpersist "github.com/Dovud1997/Dovud/backend/internal/modules/organization/infrastructure/persistence"
 	orghttp "github.com/Dovud1997/Dovud/backend/internal/modules/organization/interfaces/http"
@@ -83,12 +86,15 @@ func New(cfgPath string) (*Application, error) {
 	addressRepo := crmpersist.NewCustomerAddressRepo(db)
 	customerCategoryRepo := crmpersist.NewCustomerCategoryRepo(db)
 
+	orderRepo := orderspersist.NewOrderRepo(db)
+
 	authSvc := identityapp.NewAuthService(userRepo, refreshRepo, deviceRepo, tenantRepo, tokenSvc)
 	rbacSvc := identityapp.NewRBACService(userRepo, roleRepo)
 	tenantSvc := tenantapp.NewTenantService(tenantRepo, brandingRepo, domainRepo)
 	orgSvc := orgapp.NewService(companyRepo, branchRepo, warehouseRepo)
 	catalogSvc := catalogapp.NewService(manufacturerRepo, categoryRepo, productRepo, priceRepo, promotionRepo)
 	crmSvc := crmapp.NewService(customerRepo, contactRepo, addressRepo, customerCategoryRepo)
+	ordersSvc := ordersapp.NewService(orderRepo)
 
 	router := gateway.NewRouter(gateway.Deps{
 		TokenService: tokenSvc,
@@ -97,6 +103,7 @@ func New(cfgPath string) (*Application, error) {
 		Organization: orghttp.NewHandler(orgSvc),
 		Catalog:      cataloghttp.NewHandler(catalogSvc),
 		CRM:          crmhttp.NewHandler(crmSvc),
+		Orders:       ordershttp.NewHandler(ordersSvc),
 	})
 
 	return &Application{Cfg: cfg, Log: log, DB: db, Router: router}, nil
@@ -129,6 +136,9 @@ func autoMigrate(db *gorm.DB) error {
 		&crmpersist.CustomerModel{},
 		&crmpersist.CustomerContactModel{},
 		&crmpersist.CustomerAddressModel{},
+		&orderspersist.OrderModel{},
+		&orderspersist.OrderLineModel{},
+		&orderspersist.OrderStatusHistoryModel{},
 	)
 }
 
