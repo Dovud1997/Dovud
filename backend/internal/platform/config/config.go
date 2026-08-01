@@ -56,6 +56,9 @@ type MinioConfig struct {
 	SecretKey string `yaml:"secret_key"`
 	Bucket    string `yaml:"bucket"`
 	UseSSL    bool   `yaml:"use_ssl"`
+	// Driver: "minio" (default), "local", or "auto" (try minio, fall back to local).
+	Driver    string `yaml:"driver"`
+	LocalPath string `yaml:"local_path"`
 }
 
 type RabbitMQConfig struct {
@@ -94,6 +97,24 @@ func Load(path string) (*Config, error) {
 	}
 	if redisAddr := os.Getenv("SFA_REDIS_ADDR"); redisAddr != "" {
 		cfg.Redis.Addr = redisAddr
+	}
+	if rabbitURL := os.Getenv("SFA_RABBITMQ_URL"); rabbitURL != "" {
+		cfg.RabbitMQ.URL = rabbitURL
+	}
+	if minioEndpoint := os.Getenv("SFA_MINIO_ENDPOINT"); minioEndpoint != "" {
+		cfg.Minio.Endpoint = minioEndpoint
+	}
+	if minioAccess := os.Getenv("SFA_MINIO_ACCESS_KEY"); minioAccess != "" {
+		cfg.Minio.AccessKey = minioAccess
+	}
+	if minioSecret := os.Getenv("SFA_MINIO_SECRET_KEY"); minioSecret != "" {
+		cfg.Minio.SecretKey = minioSecret
+	}
+	if minioBucket := os.Getenv("SFA_MINIO_BUCKET"); minioBucket != "" {
+		cfg.Minio.Bucket = minioBucket
+	}
+	if v := os.Getenv("SFA_STORAGE_DRIVER"); v != "" {
+		cfg.Minio.Driver = v
 	}
 
 	return &cfg, nil

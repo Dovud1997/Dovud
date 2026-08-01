@@ -6,57 +6,130 @@ final syncStatusProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref
   return ref.watch(syncRepositoryProvider).status();
 });
 
-class SyncPage extends ConsumerWidget {
+class SyncPage extends ConsumerStatefulWidget {
   const SyncPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SyncPage> createState() => _SyncPageState();
+}
+
+class _SyncPageState extends ConsumerState<SyncPage> {
+  String _lastPullSummary = '';
+  bool _busy = false;
+
+  Future<void> _run(Future<void> Function() action) async {
+    setState(() => _busy = true);
+    try {
+      await action();
+      ref.invalidate(syncStatusProvider);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final async = ref.watch(syncStatusProvider);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Sync center'),
-        actions: [
-          IconButton(
-            tooltip: 'Bootstrap device',
-            onPressed: () async {
-              await ref.read(syncRepositoryProvider).bootstrap();
-              ref.invalidate(syncStatusProvider);
-            },
-            icon: const Icon(Icons.cloud_sync_outlined),
+      appBar: AppBar(title: const Text('Sync center')),
+      body: Column(
+        children: [
+          if (_busy) const LinearProgressIndicator(),
+          Expanded(
+            child: async.when(
+              data: (s) => ListView(
+                padding: const EdgeInsets.all(24),
+                children: [
+                  ListTile(
+                    title: const Text('Device'),
+                    subtitle: Text(s['device_id']?.toString() ?? '—'),
+                  ),
+                  ListTile(
+                    title: const Text('Protocol'),
+                    subtitle: Text(s['sync_protocol']?.toString() ?? '—'),
+                  ),
+                  ListTile(
+                    title: const Text('Last pull cursor'),
+                    subtitle: Text(
+                      (s['last_pull_cursor']?.toString().isEmpty ?? true)
+                          ? '—'
+                          : s['last_pull_cursor'].toString(),
+                    ),
+                  ),
+                  ListTile(
+                    title: const Text('Open conflicts'),
+                    subtitle: Text(s['open_conflicts']?.toString() ?? '0'),
+                  ),
+                  if (_lastPullSummary.isNotEmpty)
+                    ListTile(
+                      title: const Text('Last pull'),
+                      subtitle: Text(_lastPullSummary),
+                    ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      FilledButton.icon(
+                        onPressed: _busy
+                            ? null
+                            : () => _run(() async {
+                                  await ref.read(syncRepositoryProvider).bootstrap();
+                                }),
+                        icon: const Icon(Icons.cloud_sync_outlined),
+                        label: const Text('Bootstrap'),
+                      ),
+                      FilledButton.tonalIcon(
+                        onPressed: _busy
+                            ? null
+                            : () => _run(() async {
+                                  final cursor = s['last_pull_cursor']?.toString() ?? '';
+                                  final res = await ref.read(syncRepositoryProvider).pull(cursor: cursor);
+                                  final changes = (res['changes'] as List?)?.length ?? 0;
+                                  setState(() => _lastPullSummary = '$changes changes');
+                                }),
+                        icon: const Icon(Icons.download_outlined),
+                        label: const Text('Pull'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _busy
+                            ? null
+                            : () => _run(() async {
+                                  await ref.read(syncRepositoryProvider).push();
+                                }),
+                        icon: const Icon(Icons.upload_outlined),
+                        label: const Text('Push empty'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('$e'),
+                      const SizedBox(height: 12),
+                      FilledButton(
+                        onPressed: () => _run(() async {
+                          await ref.read(syncRepositoryProvider).bootstrap();
+                        }),
+                        child: const Text('Bootstrap device'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
-      ),
-      body: async.when(
-        data: (s) => ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            ListTile(
-              title: const Text('Device'),
-              subtitle: Text(s['device_id']?.toString() ?? '—'),
-            ),
-            ListTile(
-              title: const Text('Protocol'),
-              subtitle: Text(s['sync_protocol']?.toString() ?? '—'),
-            ),
-            ListTile(
-              title: const Text('Last pull cursor'),
-              subtitle: Text(s['last_pull_cursor']?.toString().isEmpty == true
-                  ? '—'
-                  : s['last_pull_cursor']?.toString() ?? '—'),
-            ),
-            ListTile(
-              title: const Text('Open conflicts'),
-              subtitle: Text(s['open_conflicts']?.toString() ?? '0'),
-            ),
-          ],
-        ),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text('$e\n\nTap cloud icon to bootstrap this device.'),
-          ),
-        ),
       ),
     );
   }

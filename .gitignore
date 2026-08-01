@@ -29,3 +29,4 @@ frontend/sfa_app/pubspec.lock
 # Local
 tmp/
 *.log
+backend/storage/

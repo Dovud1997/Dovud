@@ -25,6 +25,8 @@ minio:
   secret_key: "minioadmin"
   bucket: "sfa"
   use_ssl: false
+  driver: "auto"
+  local_path: "./storage"
 
 rabbitmq:
   url: "amqp://sfa:sfa@localhost:5672/"

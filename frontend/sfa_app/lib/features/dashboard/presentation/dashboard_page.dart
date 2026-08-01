@@ -126,6 +126,12 @@ class DashboardPage extends ConsumerWidget {
             onTap: () => context.push('/receivables'),
           ),
           _ModuleTile(
+            icon: Icons.folder_outlined,
+            title: 'Documents',
+            subtitle: 'Files & document meta',
+            onTap: () => context.push('/documents'),
+          ),
+          _ModuleTile(
             icon: Icons.sync_outlined,
             title: 'Sync center',
             subtitle: 'Offline pull / push status',

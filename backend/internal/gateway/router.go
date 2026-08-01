@@ -4,6 +4,7 @@ import (
 	analytichttp "github.com/Dovud1997/Dovud/backend/internal/modules/analytics/interfaces/http"
 	cataloghttp "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/interfaces/http"
 	crmhttp "github.com/Dovud1997/Dovud/backend/internal/modules/crm/interfaces/http"
+	docshttp "github.com/Dovud1997/Dovud/backend/internal/modules/documents/interfaces/http"
 	ffhttp "github.com/Dovud1997/Dovud/backend/internal/modules/fieldforce/interfaces/http"
 	financehttp "github.com/Dovud1997/Dovud/backend/internal/modules/finance/interfaces/http"
 	identityhttp "github.com/Dovud1997/Dovud/backend/internal/modules/identity/interfaces/http"
@@ -34,6 +35,7 @@ type Deps struct {
 	Sync          *synchttp.Handler
 	Notifications *notifyhttp.Handler
 	Analytics     *analytichttp.Handler
+	Documents     *docshttp.Handler
 }
 
 func NewRouter(deps Deps) *fiber.App {
@@ -52,6 +54,9 @@ func NewRouter(deps Deps) *fiber.App {
 	v1 := app.Group("/api/v1")
 	deps.Tenant.RegisterPublic(v1)
 	deps.Identity.RegisterPublic(v1)
+	if deps.Documents != nil {
+		deps.Documents.RegisterPublic(v1)
+	}
 
 	protected := v1.Group("", httpx.AuthMiddleware(deps.TokenService))
 	deps.Identity.RegisterProtected(protected)
@@ -66,6 +71,9 @@ func NewRouter(deps Deps) *fiber.App {
 	deps.Sync.Register(protected)
 	deps.Notifications.Register(protected)
 	deps.Analytics.Register(protected)
+	if deps.Documents != nil {
+		deps.Documents.Register(protected)
+	}
 
 	return app
 }

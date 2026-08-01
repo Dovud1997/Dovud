@@ -9,6 +9,8 @@ import (
 
 	analyticsdomain "github.com/Dovud1997/Dovud/backend/internal/modules/analytics/domain"
 	analyticspersist "github.com/Dovud1997/Dovud/backend/internal/modules/analytics/infrastructure/persistence"
+	documentsdomain "github.com/Dovud1997/Dovud/backend/internal/modules/documents/domain"
+	documentspersist "github.com/Dovud1997/Dovud/backend/internal/modules/documents/infrastructure/persistence"
 	catalogdomain "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/domain"
 	catalogpersist "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/infrastructure/persistence"
 	crmdomain "github.com/Dovud1997/Dovud/backend/internal/modules/crm/domain"
@@ -468,6 +470,27 @@ func seedP3Demo(ctx context.Context, db *gorm.DB, tenantID, customerID, productI
 			}
 		}
 		log.Info("seeded kpi definitions")
+	}
+
+	docRepo := documentspersist.NewDocumentRepo(db)
+	docs, _, err := docRepo.List(ctx, tenantID, 1, 1)
+	if err != nil {
+		return err
+	}
+	if len(docs) == 0 {
+		admin, _ := identitypersist.NewUserRepo(db).FindByEmail(ctx, tenantID, "admin@demo.local")
+		var createdBy *uuid.UUID
+		if admin != nil {
+			createdBy = &admin.ID
+		}
+		desc := "Seeded demo document"
+		if err := docRepo.Create(ctx, &documentsdomain.Document{
+			TenantID: tenantID, Title: "Welcome pack", Description: &desc,
+			DocType: "general", Status: documentsdomain.DocStatusActive, CreatedBy: createdBy,
+		}); err != nil {
+			return err
+		}
+		log.Info("seeded document", "title", "Welcome pack")
 	}
 
 	return nil

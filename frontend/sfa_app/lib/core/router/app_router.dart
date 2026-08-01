@@ -6,6 +6,7 @@ import 'package:sfa_app/features/auth/presentation/login_page.dart';
 import 'package:sfa_app/features/catalog/presentation/products_page.dart';
 import 'package:sfa_app/features/crm/presentation/customers_page.dart';
 import 'package:sfa_app/features/dashboard/presentation/dashboard_page.dart';
+import 'package:sfa_app/features/documents/presentation/documents_page.dart';
 import 'package:sfa_app/features/fieldforce/presentation/routes_page.dart';
 import 'package:sfa_app/features/finance/presentation/receivables_page.dart';
 import 'package:sfa_app/features/notifications/presentation/notifications_page.dart';
@@ -37,6 +38,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/returns', builder: (context, state) => const ReturnsPage()),
       GoRoute(path: '/receivables', builder: (context, state) => const ReceivablesPage()),
       GoRoute(path: '/notifications', builder: (context, state) => const NotificationsPage()),
+      GoRoute(path: '/documents', builder: (context, state) => const DocumentsPage()),
       GoRoute(path: '/sync', builder: (context, state) => const SyncPage()),
     ],
     errorBuilder: (context, state) => Scaffold(

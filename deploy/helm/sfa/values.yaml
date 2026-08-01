@@ -1,0 +1,45 @@
+image:
+  api: sfa-api:latest
+  worker: sfa-worker:latest
+  pullPolicy: IfNotPresent
+
+api:
+  replicas: 1
+  port: 8080
+  resources: {}
+
+worker:
+  replicas: 1
+  resources: {}
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: ""
+  host: sfa.local
+  tls: false
+
+config:
+  env: production
+  publicBaseUrl: https://sfa.local
+
+env:
+  SFA_DATABASE_DSN: ""
+  SFA_REDIS_ADDR: redis:6379
+  SFA_RABBITMQ_URL: amqp://sfa:sfa@rabbitmq:5672/
+  SFA_MINIO_ENDPOINT: minio:9000
+  SFA_MINIO_ACCESS_KEY: minioadmin
+  SFA_MINIO_SECRET_KEY: minioadmin
+  SFA_MINIO_BUCKET: sfa
+  SFA_STORAGE_DRIVER: minio
+  SFA_ACCESS_SECRET: change-me-access-secret-min-32-chars!!
+  SFA_REFRESH_SECRET: change-me-refresh-secret-min-32-chars!
+
+postgres:
+  enabled: false
+
+redis:
+  enabled: false

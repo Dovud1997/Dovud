@@ -22,4 +22,24 @@ class SyncRepository {
     });
     return Map<String, dynamic>.from(envelope['data'] as Map? ?? const {});
   }
+
+  Future<Map<String, dynamic>> pull({String deviceId = 'flutter-web', String cursor = ''}) async {
+    final envelope = await _api.get('/sync/pull', query: {
+      'device_id': deviceId,
+      if (cursor.isNotEmpty) 'cursor': cursor,
+      'limit': 100,
+    });
+    return Map<String, dynamic>.from(envelope['data'] as Map? ?? const {});
+  }
+
+  Future<Map<String, dynamic>> push({
+    String deviceId = 'flutter-web',
+    List<Map<String, dynamic>> ops = const [],
+  }) async {
+    final envelope = await _api.post('/sync/push', data: {
+      'device_id': deviceId,
+      'ops': ops,
+    });
+    return Map<String, dynamic>.from(envelope['data'] as Map? ?? const {});
+  }
 }

@@ -1,0 +1,5 @@
+DROP TABLE IF EXISTS entity_files;
+DROP TABLE IF EXISTS document_files;
+DROP TABLE IF EXISTS documents;
+DROP TABLE IF EXISTS files;
+DROP TABLE IF EXISTS outbox_events;

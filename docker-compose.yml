@@ -50,12 +50,33 @@ services:
       SFA_DATABASE_DSN: "host=postgres user=sfa password=sfa dbname=sfa port=5432 sslmode=disable TimeZone=UTC"
       SFA_REDIS_ADDR: redis:6379
       SFA_HTTP_ADDR: ":8080"
+      SFA_RABBITMQ_URL: amqp://sfa:sfa@rabbitmq:5672/
+      SFA_MINIO_ENDPOINT: minio:9000
+      SFA_STORAGE_DRIVER: minio
     ports:
       - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+      minio:
+        condition: service_started
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: ../deploy/docker/Dockerfile.worker
+    environment:
+      SFA_CONFIG: /app/configs/config.yaml
+      SFA_DATABASE_DSN: "host=postgres user=sfa password=sfa dbname=sfa port=5432 sslmode=disable TimeZone=UTC"
+      SFA_RABBITMQ_URL: amqp://sfa:sfa@rabbitmq:5672/
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_started
 
 volumes:

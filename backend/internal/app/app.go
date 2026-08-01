@@ -15,6 +15,9 @@ import (
 	crmapp "github.com/Dovud1997/Dovud/backend/internal/modules/crm/application"
 	crmpersist "github.com/Dovud1997/Dovud/backend/internal/modules/crm/infrastructure/persistence"
 	crmhttp "github.com/Dovud1997/Dovud/backend/internal/modules/crm/interfaces/http"
+	docsapp "github.com/Dovud1997/Dovud/backend/internal/modules/documents/application"
+	docspersist "github.com/Dovud1997/Dovud/backend/internal/modules/documents/infrastructure/persistence"
+	docshttp "github.com/Dovud1997/Dovud/backend/internal/modules/documents/interfaces/http"
 	ffapp "github.com/Dovud1997/Dovud/backend/internal/modules/fieldforce/application"
 	ffpersist "github.com/Dovud1997/Dovud/backend/internal/modules/fieldforce/infrastructure/persistence"
 	ffhttp "github.com/Dovud1997/Dovud/backend/internal/modules/fieldforce/interfaces/http"
@@ -46,7 +49,10 @@ import (
 	"github.com/Dovud1997/Dovud/backend/internal/platform/config"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/database"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/logger"
+	"github.com/Dovud1997/Dovud/backend/internal/platform/outbox"
+	"github.com/Dovud1997/Dovud/backend/internal/platform/redisx"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/seed"
+	"github.com/Dovud1997/Dovud/backend/internal/platform/storage"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 )
@@ -55,6 +61,8 @@ type Application struct {
 	Cfg    *config.Config
 	Log    *slog.Logger
 	DB     *gorm.DB
+	Redis  *redisx.Client
+	Store  storage.ObjectStore
 	Router *fiber.App
 }
 
@@ -78,7 +86,24 @@ func New(cfgPath string) (*Application, error) {
 		return nil, fmt.Errorf("seed: %w", err)
 	}
 
+	var redisClient *redisx.Client
+	if cfg.Redis.Addr != "" {
+		rc, rerr := redisx.Connect(cfg.Redis)
+		if rerr != nil {
+			log.Warn("redis unavailable", "error", rerr)
+		} else {
+			redisClient = rc
+			log.Info("redis connected", "addr", cfg.Redis.Addr)
+		}
+	}
+
+	objectStore, err := storage.Open(cfg.Minio, cfg.App.PublicBaseURL, cfg.Auth.AccessSecret, log)
+	if err != nil {
+		return nil, fmt.Errorf("storage: %w", err)
+	}
+
 	tokenSvc := auth.NewTokenService(cfg.Auth)
+	outboxStore := outbox.NewStore(db)
 
 	userRepo := identitypersist.NewUserRepo(db)
 	roleRepo := identitypersist.NewRoleRepo(db)
@@ -120,6 +145,8 @@ func New(cfgPath string) (*Application, error) {
 
 	notifyRepo := notifypersist.NewNotificationRepo(db)
 	kpiRepo := analyticspersist.NewKpiRepo(db)
+	fileRepo := docspersist.NewFileRepo(db)
+	documentRepo := docspersist.NewDocumentRepo(db)
 
 	authSvc := identityapp.NewAuthService(userRepo, refreshRepo, deviceRepo, tenantRepo, tokenSvc)
 	rbacSvc := identityapp.NewRBACService(userRepo, roleRepo)
@@ -134,6 +161,7 @@ func New(cfgPath string) (*Application, error) {
 	syncSvc := syncapp.NewService(syncDeviceRepo, syncChangeRepo, syncConflictRepo)
 	notifySvc := notifyapp.NewService(notifyRepo)
 	analyticsSvc := analyticsapp.NewService(kpiRepo, db)
+	docsSvc := docsapp.NewService(fileRepo, documentRepo, objectStore, outboxStore)
 
 	router := gateway.NewRouter(gateway.Deps{
 		TokenService:  tokenSvc,
@@ -149,9 +177,10 @@ func New(cfgPath string) (*Application, error) {
 		Sync:          synchttp.NewHandler(syncSvc),
 		Notifications: notifyhttp.NewHandler(notifySvc),
 		Analytics:     analyticshttp.NewHandler(analyticsSvc),
+		Documents:     docshttp.NewHandler(docsSvc, objectStore),
 	})
 
-	return &Application{Cfg: cfg, Log: log, DB: db, Router: router}, nil
+	return &Application{Cfg: cfg, Log: log, DB: db, Redis: redisClient, Store: objectStore, Router: router}, nil
 }
 
 func autoMigrate(db *gorm.DB) error {
@@ -204,10 +233,15 @@ func autoMigrate(db *gorm.DB) error {
 		&notifypersist.NotificationDeliveryModel{},
 		&analyticspersist.KpiDefinitionModel{},
 		&analyticspersist.KpiSnapshotModel{},
+		&outbox.EventModel{},
+		&docspersist.FileModel{},
+		&docspersist.DocumentModel{},
+		&docspersist.DocumentFileModel{},
+		&docspersist.EntityFileModel{},
 	)
 }
 
 func (a *Application) Run() error {
-	a.Log.Info("starting api", "addr", a.Cfg.App.HTTPAddr, "env", a.Cfg.App.Env)
+	a.Log.Info("starting api", "addr", a.Cfg.App.HTTPAddr, "env", a.Cfg.App.Env, "storage", a.Store.Driver())
 	return a.Router.Listen(a.Cfg.App.HTTPAddr)
 }

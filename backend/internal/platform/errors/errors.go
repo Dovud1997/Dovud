@@ -38,4 +38,5 @@ var (
 	ErrTenantNotFound   = New("TENANT_NOT_FOUND", "Tenant not found", 404)
 	ErrInvalidCreds     = New("AUTH_INVALID", "Invalid credentials", 401)
 	ErrTokenInvalid     = New("AUTH_INVALID", "Invalid or expired token", 401)
+	ErrUnavailable      = New("SERVICE_UNAVAILABLE", "Service temporarily unavailable", 503)
 )

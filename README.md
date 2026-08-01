@@ -2,7 +2,7 @@
 
 White Label SaaS platform for sales force automation — multi-tenant, offline-capable, enterprise-ready.
 
-**Status:** P3 delivered (Returns · Finance/AR · Sync · Notifications · Dashboard/KPI) on top of P0–P2
+**Status:** P4 delivered (Documents/MinIO · Outbox/RabbitMQ worker · Helm) on top of P0–P3
 
 ## Architecture
 
@@ -74,9 +74,18 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 - Demo seed: return, receivable, credit limit, notification, KPI definitions
 - Flutter: Returns, Receivables, Notifications, Sync center, dashboard KPIs
 
-## Next (P4+)
+**P4 — Documents / Media / Workers / Helm**
+- Module: `documents` (files presign/complete, documents CRUD, attach)
+- Platform: MinIO/local object storage, RabbitMQ topology, transactional outbox
+- Binary: `cmd/worker` (outbox relay + notify/media consumers)
+- Migration `000006_outbox_documents`
+- Compose: `worker` service; storage driver `auto|minio|local`
+- Helm chart skeleton: `deploy/helm/sfa`
+- Flutter: Documents list; Sync center bootstrap/pull/push actions
 
-Workers / RabbitMQ consumers · MinIO media · full offline client · Helm
+## Next (P5+)
+
+Full offline Flutter client (local DB + outbox) · audit module · scheduler · notify providers (FCM/email/SMS) · media thumbnails
 
 ## Locales & themes
 
