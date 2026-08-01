@@ -7,18 +7,26 @@ import (
 
 	"time"
 
+	analyticsdomain "github.com/Dovud1997/Dovud/backend/internal/modules/analytics/domain"
+	analyticspersist "github.com/Dovud1997/Dovud/backend/internal/modules/analytics/infrastructure/persistence"
 	catalogdomain "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/domain"
 	catalogpersist "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/infrastructure/persistence"
 	crmdomain "github.com/Dovud1997/Dovud/backend/internal/modules/crm/domain"
 	crmpersist "github.com/Dovud1997/Dovud/backend/internal/modules/crm/infrastructure/persistence"
 	ffdomain "github.com/Dovud1997/Dovud/backend/internal/modules/fieldforce/domain"
 	ffpersist "github.com/Dovud1997/Dovud/backend/internal/modules/fieldforce/infrastructure/persistence"
+	financedomain "github.com/Dovud1997/Dovud/backend/internal/modules/finance/domain"
+	financepersist "github.com/Dovud1997/Dovud/backend/internal/modules/finance/infrastructure/persistence"
 	identitydomain "github.com/Dovud1997/Dovud/backend/internal/modules/identity/domain"
 	identitypersist "github.com/Dovud1997/Dovud/backend/internal/modules/identity/infrastructure/persistence"
+	notifydomain "github.com/Dovud1997/Dovud/backend/internal/modules/notifications/domain"
+	notifypersist "github.com/Dovud1997/Dovud/backend/internal/modules/notifications/infrastructure/persistence"
 	ordersdomain "github.com/Dovud1997/Dovud/backend/internal/modules/orders/domain"
 	orderspersist "github.com/Dovud1997/Dovud/backend/internal/modules/orders/infrastructure/persistence"
 	orgdomain "github.com/Dovud1997/Dovud/backend/internal/modules/organization/domain"
 	orgpersist "github.com/Dovud1997/Dovud/backend/internal/modules/organization/infrastructure/persistence"
+	returnsdomain "github.com/Dovud1997/Dovud/backend/internal/modules/returns/domain"
+	returnspersist "github.com/Dovud1997/Dovud/backend/internal/modules/returns/infrastructure/persistence"
 	tenantdomain "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/domain"
 	tenantpersist "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/infrastructure/persistence"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/auth"
@@ -108,7 +116,8 @@ func Run(ctx context.Context, db *gorm.DB, log *slog.Logger) error {
 	agentPerms, err := roleRepo.PermissionIDsByCodes(ctx, []string{
 		"customers:read", "catalog:read", "orders:read", "orders:write",
 		"visits:read", "visits:write", "routes:read", "sync:use",
-		"notifications:read", "documents:read", "documents:write", "finance:read",
+		"notifications:read", "documents:read", "documents:write",
+		"finance:read", "returns:read", "returns:write", "analytics:read",
 	})
 	if err != nil {
 		return err
@@ -366,6 +375,101 @@ func seedFieldAndOrders(ctx context.Context, db *gorm.DB, tenantID, branchID, cu
 		}
 		log.Info("seeded order", "number", order.Number)
 	}
+
+	return seedP3Demo(ctx, db, tenantID, customerID, productID, salesAgent.ID, agentUser.ID, log)
+}
+
+func seedP3Demo(ctx context.Context, db *gorm.DB, tenantID, customerID, productID, agentID, agentUserID uuid.UUID, log *slog.Logger) error {
+	returnRepo := returnspersist.NewReturnRepo(db)
+	receivableRepo := financepersist.NewReceivableRepo(db)
+	creditRepo := financepersist.NewCreditLimitRepo(db)
+	notifyRepo := notifypersist.NewNotificationRepo(db)
+	kpiRepo := analyticspersist.NewKpiRepo(db)
+
+	returns, _, err := returnRepo.List(ctx, tenantID, returnsdomain.ReturnListFilters{}, 1, 1)
+	if err != nil {
+		return err
+	}
+	if len(returns) == 0 {
+		reason := "Damaged packaging"
+		qty, price := 2.0, 8500.0
+		lineTotal := qty * price
+		ret := &returnsdomain.Return{
+			TenantID: tenantID, Number: "RET-DEMO-0001", CustomerID: customerID,
+			AgentID: &agentID, Status: returnsdomain.StatusSubmitted, Reason: &reason,
+			Currency: "UZS", Subtotal: lineTotal, GrandTotal: lineTotal, Version: 1,
+		}
+		if err := returnRepo.Create(ctx, ret, []returnsdomain.ReturnLine{
+			{ProductID: productID, Qty: qty, UnitPrice: price, LineTotal: lineTotal, Reason: &reason},
+		}); err != nil {
+			return err
+		}
+		log.Info("seeded return", "number", ret.Number)
+	}
+
+	receivables, _, err := receivableRepo.List(ctx, tenantID, financedomain.ReceivableListFilters{}, 1, 1)
+	if err != nil {
+		return err
+	}
+	if len(receivables) == 0 {
+		due := time.Now().UTC().AddDate(0, 0, 14)
+		rec := &financedomain.Receivable{
+			TenantID: tenantID, CustomerID: customerID,
+			DocumentType: financedomain.DocumentTypeOrder,
+			Amount: 85000, PaidAmount: 0, Balance: 85000,
+			DueDate: &due, Status: financedomain.StatusOpen, Currency: "UZS", Version: 1,
+		}
+		if err := receivableRepo.Create(ctx, rec); err != nil {
+			return err
+		}
+		log.Info("seeded receivable", "id", rec.ID)
+	}
+
+	if _, err := creditRepo.GetByCustomer(ctx, tenantID, customerID); err != nil {
+		if err := creditRepo.Upsert(ctx, &financedomain.CreditLimit{
+			TenantID: tenantID, CustomerID: customerID, Amount: 5000000, Currency: "UZS",
+		}); err != nil {
+			return err
+		}
+		log.Info("seeded credit limit", "customer_id", customerID)
+	}
+
+	notifs, _, err := notifyRepo.ListByUser(ctx, tenantID, agentUserID, notifydomain.ListFilters{}, 1, 1)
+	if err != nil {
+		return err
+	}
+	if len(notifs) == 0 {
+		n := &notifydomain.Notification{
+			TenantID: tenantID, UserID: agentUserID, Type: "route.assigned",
+			Title: "Today route ready", Body: "Your route for today has 1 stop.",
+			Channel: notifydomain.ChannelInApp,
+		}
+		d := &notifydomain.NotificationDelivery{
+			Channel: notifydomain.ChannelInApp, Status: notifydomain.DeliverySent,
+		}
+		if err := notifyRepo.Create(ctx, n, d); err != nil {
+			return err
+		}
+		log.Info("seeded notification", "user_id", agentUserID)
+	}
+
+	defs, err := kpiRepo.ListDefinitions(ctx, tenantID)
+	if err != nil {
+		return err
+	}
+	if len(defs) == 0 {
+		for _, d := range []analyticsdomain.KpiDefinition{
+			{Code: "orders_today", Name: "Orders today", Description: "Count of orders created today", Unit: "count"},
+			{Code: "visits_today", Name: "Visits today", Description: "Count of visits started today", Unit: "count"},
+			{Code: "open_ar", Name: "Open receivables", Description: "Open AR balance", Unit: "money"},
+		} {
+			if err := kpiRepo.CreateDefinition(ctx, &d); err != nil {
+				return err
+			}
+		}
+		log.Info("seeded kpi definitions")
+	}
+
 	return nil
 }
 

@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sfa_app/features/analytics/data/analytics_repository.dart';
 import 'package:sfa_app/features/auth/presentation/auth_controller.dart';
+
+final dashboardSummaryProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) {
+  return ref.watch(analyticsRepositoryProvider).dashboardSummary();
+});
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
@@ -12,11 +17,17 @@ class DashboardPage extends ConsumerWidget {
     final user = state.session?.user;
     final branding = state.branding;
     final theme = Theme.of(context);
+    final summary = ref.watch(dashboardSummaryProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(branding?.appName ?? 'SFA'),
         actions: [
+          IconButton(
+            tooltip: 'Notifications',
+            onPressed: () => context.push('/notifications'),
+            icon: const Icon(Icons.notifications_outlined),
+          ),
           IconButton(
             tooltip: 'Log out',
             onPressed: () => ref.read(sessionControllerProvider.notifier).logout(),
@@ -46,6 +57,28 @@ class DashboardPage extends ConsumerWidget {
               for (final role in user?.roles ?? const <String>[])
                 Chip(label: Text(role)),
             ],
+          ),
+          const SizedBox(height: 28),
+          Text('Today', style: theme.textTheme.titleLarge),
+          const SizedBox(height: 12),
+          summary.when(
+            data: (s) => Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _KpiChip(label: 'Orders', value: '${s['orders_today'] ?? 0}'),
+                _KpiChip(label: 'Visits', value: '${s['visits_today'] ?? 0}'),
+                _KpiChip(label: 'Open AR', value: '${s['open_receivables'] ?? 0}'),
+                _KpiChip(label: 'Pending', value: '${s['pending_orders'] ?? 0}'),
+              ],
+            ),
+            loading: () => const LinearProgressIndicator(),
+            error: (_, __) => Text(
+              'KPI unavailable',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.55),
+              ),
+            ),
           ),
           const SizedBox(height: 28),
           Text('Modules', style: theme.textTheme.titleLarge),
@@ -80,6 +113,51 @@ class DashboardPage extends ConsumerWidget {
             subtitle: 'Sales orders pipeline',
             onTap: () => context.push('/orders'),
           ),
+          _ModuleTile(
+            icon: Icons.assignment_return_outlined,
+            title: 'Returns',
+            subtitle: 'Return approvals',
+            onTap: () => context.push('/returns'),
+          ),
+          _ModuleTile(
+            icon: Icons.account_balance_wallet_outlined,
+            title: 'Receivables',
+            subtitle: 'Finance / AR',
+            onTap: () => context.push('/receivables'),
+          ),
+          _ModuleTile(
+            icon: Icons.sync_outlined,
+            title: 'Sync center',
+            subtitle: 'Offline pull / push status',
+            onTap: () => context.push('/sync'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _KpiChip extends StatelessWidget {
+  const _KpiChip({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: theme.textTheme.labelMedium),
+          const SizedBox(height: 4),
+          Text(value, style: theme.textTheme.titleMedium),
         ],
       ),
     );

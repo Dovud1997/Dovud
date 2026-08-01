@@ -2,7 +2,7 @@
 
 White Label SaaS platform for sales force automation — multi-tenant, offline-capable, enterprise-ready.
 
-**Status:** P2 delivered (FieldForce · Orders) on top of P0–P1
+**Status:** P3 delivered (Returns · Finance/AR · Sync · Notifications · Dashboard/KPI) on top of P0–P2
 
 ## Architecture
 
@@ -64,9 +64,19 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 - Demo seed: sales agent, today route, submitted order
 - Flutter lists: Routes, Orders (+ prior screens)
 
-## Next (P3)
+**P3 — Returns / Finance / Sync / Notifications / Analytics**
+- Modules: `returns`, `finance`, `sync`, `notifications`, `analytics`
+- Returns workflow (draft→submit→approve/reject→complete)
+- Receivables, payments, credit limits, aging report
+- Offline sync: bootstrap / pull / push / conflicts (op_id idempotency)
+- In-app notifications + dashboard KPI summary
+- Migration `000005_returns_finance_notify_analytics` (+ `000004_sync`)
+- Demo seed: return, receivable, credit limit, notification, KPI definitions
+- Flutter: Returns, Receivables, Notifications, Sync center, dashboard KPIs
 
-Returns · Finance/AR · Offline Sync · Notifications · Dashboard/KPI
+## Next (P4+)
+
+Workers / RabbitMQ consumers · MinIO media · full offline client · Helm
 
 ## Locales & themes
 

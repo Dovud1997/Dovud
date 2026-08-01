@@ -6,6 +6,9 @@ import (
 	"log/slog"
 
 	"github.com/Dovud1997/Dovud/backend/internal/gateway"
+	analyticsapp "github.com/Dovud1997/Dovud/backend/internal/modules/analytics/application"
+	analyticspersist "github.com/Dovud1997/Dovud/backend/internal/modules/analytics/infrastructure/persistence"
+	analyticshttp "github.com/Dovud1997/Dovud/backend/internal/modules/analytics/interfaces/http"
 	catalogapp "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/application"
 	catalogpersist "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/infrastructure/persistence"
 	cataloghttp "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/interfaces/http"
@@ -15,15 +18,27 @@ import (
 	ffapp "github.com/Dovud1997/Dovud/backend/internal/modules/fieldforce/application"
 	ffpersist "github.com/Dovud1997/Dovud/backend/internal/modules/fieldforce/infrastructure/persistence"
 	ffhttp "github.com/Dovud1997/Dovud/backend/internal/modules/fieldforce/interfaces/http"
+	financeapp "github.com/Dovud1997/Dovud/backend/internal/modules/finance/application"
+	financepersist "github.com/Dovud1997/Dovud/backend/internal/modules/finance/infrastructure/persistence"
+	financehttp "github.com/Dovud1997/Dovud/backend/internal/modules/finance/interfaces/http"
 	identityapp "github.com/Dovud1997/Dovud/backend/internal/modules/identity/application"
 	identitypersist "github.com/Dovud1997/Dovud/backend/internal/modules/identity/infrastructure/persistence"
 	identityhttp "github.com/Dovud1997/Dovud/backend/internal/modules/identity/interfaces/http"
+	notifyapp "github.com/Dovud1997/Dovud/backend/internal/modules/notifications/application"
+	notifypersist "github.com/Dovud1997/Dovud/backend/internal/modules/notifications/infrastructure/persistence"
+	notifyhttp "github.com/Dovud1997/Dovud/backend/internal/modules/notifications/interfaces/http"
 	ordersapp "github.com/Dovud1997/Dovud/backend/internal/modules/orders/application"
 	orderspersist "github.com/Dovud1997/Dovud/backend/internal/modules/orders/infrastructure/persistence"
 	ordershttp "github.com/Dovud1997/Dovud/backend/internal/modules/orders/interfaces/http"
 	orgapp "github.com/Dovud1997/Dovud/backend/internal/modules/organization/application"
 	orgpersist "github.com/Dovud1997/Dovud/backend/internal/modules/organization/infrastructure/persistence"
 	orghttp "github.com/Dovud1997/Dovud/backend/internal/modules/organization/interfaces/http"
+	returnsapp "github.com/Dovud1997/Dovud/backend/internal/modules/returns/application"
+	returnspersist "github.com/Dovud1997/Dovud/backend/internal/modules/returns/infrastructure/persistence"
+	returnshttp "github.com/Dovud1997/Dovud/backend/internal/modules/returns/interfaces/http"
+	syncapp "github.com/Dovud1997/Dovud/backend/internal/modules/sync/application"
+	syncpersist "github.com/Dovud1997/Dovud/backend/internal/modules/sync/infrastructure/persistence"
+	synchttp "github.com/Dovud1997/Dovud/backend/internal/modules/sync/interfaces/http"
 	tenantapp "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/application"
 	tenantpersist "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/infrastructure/persistence"
 	tenanthttp "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/interfaces/http"
@@ -95,6 +110,16 @@ func New(cfgPath string) (*Application, error) {
 	gpsRepo := ffpersist.NewGpsRepo(db)
 
 	orderRepo := orderspersist.NewOrderRepo(db)
+	returnRepo := returnspersist.NewReturnRepo(db)
+	receivableRepo := financepersist.NewReceivableRepo(db)
+	creditLimitRepo := financepersist.NewCreditLimitRepo(db)
+
+	syncDeviceRepo := syncpersist.NewDeviceRepo(db)
+	syncChangeRepo := syncpersist.NewChangeLogRepo(db)
+	syncConflictRepo := syncpersist.NewConflictRepo(db)
+
+	notifyRepo := notifypersist.NewNotificationRepo(db)
+	kpiRepo := analyticspersist.NewKpiRepo(db)
 
 	authSvc := identityapp.NewAuthService(userRepo, refreshRepo, deviceRepo, tenantRepo, tokenSvc)
 	rbacSvc := identityapp.NewRBACService(userRepo, roleRepo)
@@ -104,16 +129,26 @@ func New(cfgPath string) (*Application, error) {
 	crmSvc := crmapp.NewService(customerRepo, contactRepo, addressRepo, customerCategoryRepo)
 	ffSvc := ffapp.NewService(agentRepo, routeRepo, visitRepo, gpsRepo)
 	ordersSvc := ordersapp.NewService(orderRepo)
+	returnsSvc := returnsapp.NewService(returnRepo)
+	financeSvc := financeapp.NewService(receivableRepo, creditLimitRepo)
+	syncSvc := syncapp.NewService(syncDeviceRepo, syncChangeRepo, syncConflictRepo)
+	notifySvc := notifyapp.NewService(notifyRepo)
+	analyticsSvc := analyticsapp.NewService(kpiRepo, db)
 
 	router := gateway.NewRouter(gateway.Deps{
-		TokenService: tokenSvc,
-		Identity:     identityhttp.NewHandler(authSvc, rbacSvc),
-		Tenant:       tenanthttp.NewHandler(tenantSvc),
-		Organization: orghttp.NewHandler(orgSvc),
-		Catalog:      cataloghttp.NewHandler(catalogSvc),
-		CRM:          crmhttp.NewHandler(crmSvc),
-		FieldForce:   ffhttp.NewHandler(ffSvc),
-		Orders:       ordershttp.NewHandler(ordersSvc),
+		TokenService:  tokenSvc,
+		Identity:      identityhttp.NewHandler(authSvc, rbacSvc),
+		Tenant:        tenanthttp.NewHandler(tenantSvc),
+		Organization:  orghttp.NewHandler(orgSvc),
+		Catalog:       cataloghttp.NewHandler(catalogSvc),
+		CRM:           crmhttp.NewHandler(crmSvc),
+		FieldForce:    ffhttp.NewHandler(ffSvc),
+		Orders:        ordershttp.NewHandler(ordersSvc),
+		Returns:       returnshttp.NewHandler(returnsSvc),
+		Finance:       financehttp.NewHandler(financeSvc),
+		Sync:          synchttp.NewHandler(syncSvc),
+		Notifications: notifyhttp.NewHandler(notifySvc),
+		Analytics:     analyticshttp.NewHandler(analyticsSvc),
 	})
 
 	return &Application{Cfg: cfg, Log: log, DB: db, Router: router}, nil
@@ -156,6 +191,19 @@ func autoMigrate(db *gorm.DB) error {
 		&orderspersist.OrderModel{},
 		&orderspersist.OrderLineModel{},
 		&orderspersist.OrderStatusHistoryModel{},
+		&returnspersist.ReturnModel{},
+		&returnspersist.ReturnLineModel{},
+		&financepersist.ReceivableModel{},
+		&financepersist.ReceivablePaymentModel{},
+		&financepersist.CreditLimitModel{},
+		&syncpersist.SyncDeviceModel{},
+		&syncpersist.SyncChangeLogModel{},
+		&syncpersist.SyncConflictModel{},
+		&syncpersist.SyncAppliedOpModel{},
+		&notifypersist.NotificationModel{},
+		&notifypersist.NotificationDeliveryModel{},
+		&analyticspersist.KpiDefinitionModel{},
+		&analyticspersist.KpiSnapshotModel{},
 	)
 }
 

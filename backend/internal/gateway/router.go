@@ -1,12 +1,17 @@
 package gateway
 
 import (
+	analytichttp "github.com/Dovud1997/Dovud/backend/internal/modules/analytics/interfaces/http"
 	cataloghttp "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/interfaces/http"
 	crmhttp "github.com/Dovud1997/Dovud/backend/internal/modules/crm/interfaces/http"
 	ffhttp "github.com/Dovud1997/Dovud/backend/internal/modules/fieldforce/interfaces/http"
+	financehttp "github.com/Dovud1997/Dovud/backend/internal/modules/finance/interfaces/http"
 	identityhttp "github.com/Dovud1997/Dovud/backend/internal/modules/identity/interfaces/http"
+	notifyhttp "github.com/Dovud1997/Dovud/backend/internal/modules/notifications/interfaces/http"
 	ordershttp "github.com/Dovud1997/Dovud/backend/internal/modules/orders/interfaces/http"
 	orghttp "github.com/Dovud1997/Dovud/backend/internal/modules/organization/interfaces/http"
+	returnshttp "github.com/Dovud1997/Dovud/backend/internal/modules/returns/interfaces/http"
+	synchttp "github.com/Dovud1997/Dovud/backend/internal/modules/sync/interfaces/http"
 	tenanthttp "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/interfaces/http"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/auth"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/httpx"
@@ -16,14 +21,19 @@ import (
 )
 
 type Deps struct {
-	TokenService *auth.TokenService
-	Identity     *identityhttp.Handler
-	Tenant       *tenanthttp.Handler
-	Organization *orghttp.Handler
-	Catalog      *cataloghttp.Handler
-	CRM          *crmhttp.Handler
-	FieldForce   *ffhttp.Handler
-	Orders       *ordershttp.Handler
+	TokenService  *auth.TokenService
+	Identity      *identityhttp.Handler
+	Tenant        *tenanthttp.Handler
+	Organization  *orghttp.Handler
+	Catalog       *cataloghttp.Handler
+	CRM           *crmhttp.Handler
+	FieldForce    *ffhttp.Handler
+	Orders        *ordershttp.Handler
+	Returns       *returnshttp.Handler
+	Finance       *financehttp.Handler
+	Sync          *synchttp.Handler
+	Notifications *notifyhttp.Handler
+	Analytics     *analytichttp.Handler
 }
 
 func NewRouter(deps Deps) *fiber.App {
@@ -51,6 +61,11 @@ func NewRouter(deps Deps) *fiber.App {
 	deps.CRM.Register(protected)
 	deps.FieldForce.Register(protected)
 	deps.Orders.Register(protected)
+	deps.Returns.Register(protected)
+	deps.Finance.Register(protected)
+	deps.Sync.Register(protected)
+	deps.Notifications.Register(protected)
+	deps.Analytics.Register(protected)
 
 	return app
 }

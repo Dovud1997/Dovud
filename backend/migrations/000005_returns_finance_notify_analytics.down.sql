@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS kpi_snapshots;
+DROP TABLE IF EXISTS kpi_definitions;
+DROP TABLE IF EXISTS notification_deliveries;
+DROP TABLE IF EXISTS notifications;
+DROP TABLE IF EXISTS credit_limits;
+DROP TABLE IF EXISTS receivable_payments;
+DROP TABLE IF EXISTS receivables;
+DROP TABLE IF EXISTS return_lines;
+DROP TABLE IF EXISTS returns;

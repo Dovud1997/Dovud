@@ -7,11 +7,16 @@ import (
 
 	"github.com/Dovud1997/Dovud/backend/internal/modules/identity/application"
 	identitypersist "github.com/Dovud1997/Dovud/backend/internal/modules/identity/infrastructure/persistence"
+	analyticspersist "github.com/Dovud1997/Dovud/backend/internal/modules/analytics/infrastructure/persistence"
 	catalogpersist "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/infrastructure/persistence"
 	crmpersist "github.com/Dovud1997/Dovud/backend/internal/modules/crm/infrastructure/persistence"
 	ffpersist "github.com/Dovud1997/Dovud/backend/internal/modules/fieldforce/infrastructure/persistence"
+	financepersist "github.com/Dovud1997/Dovud/backend/internal/modules/finance/infrastructure/persistence"
+	notifypersist "github.com/Dovud1997/Dovud/backend/internal/modules/notifications/infrastructure/persistence"
 	orderspersist "github.com/Dovud1997/Dovud/backend/internal/modules/orders/infrastructure/persistence"
 	orgpersist "github.com/Dovud1997/Dovud/backend/internal/modules/organization/infrastructure/persistence"
+	returnspersist "github.com/Dovud1997/Dovud/backend/internal/modules/returns/infrastructure/persistence"
+	syncpersist "github.com/Dovud1997/Dovud/backend/internal/modules/sync/infrastructure/persistence"
 	tenantpersist "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/infrastructure/persistence"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/auth"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/config"
@@ -65,6 +70,19 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&orderspersist.OrderModel{},
 		&orderspersist.OrderLineModel{},
 		&orderspersist.OrderStatusHistoryModel{},
+		&returnspersist.ReturnModel{},
+		&returnspersist.ReturnLineModel{},
+		&financepersist.ReceivableModel{},
+		&financepersist.ReceivablePaymentModel{},
+		&financepersist.CreditLimitModel{},
+		&syncpersist.SyncDeviceModel{},
+		&syncpersist.SyncChangeLogModel{},
+		&syncpersist.SyncConflictModel{},
+		&syncpersist.SyncAppliedOpModel{},
+		&notifypersist.NotificationModel{},
+		&notifypersist.NotificationDeliveryModel{},
+		&analyticspersist.KpiDefinitionModel{},
+		&analyticspersist.KpiSnapshotModel{},
 	); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
