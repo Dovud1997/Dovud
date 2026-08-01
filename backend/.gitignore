@@ -1,1 +1,4 @@
-storage/
+# Local object storage fallback data (not the platform/storage package)
+/storage/
+*.db
+sfa_dev.db
