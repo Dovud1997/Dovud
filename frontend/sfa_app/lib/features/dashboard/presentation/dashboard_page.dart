@@ -68,6 +68,18 @@ class DashboardPage extends ConsumerWidget {
             subtitle: 'CRM outlets & contacts',
             onTap: () => context.push('/customers'),
           ),
+          _ModuleTile(
+            icon: Icons.route_outlined,
+            title: 'Routes',
+            subtitle: 'Field visits & stops',
+            onTap: () => context.push('/routes'),
+          ),
+          _ModuleTile(
+            icon: Icons.receipt_long_outlined,
+            title: 'Orders',
+            subtitle: 'Sales orders pipeline',
+            onTap: () => context.push('/orders'),
+          ),
         ],
       ),
     );

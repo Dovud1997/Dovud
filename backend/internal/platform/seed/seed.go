@@ -5,12 +5,18 @@ import (
 	"log/slog"
 	"strings"
 
+	"time"
+
 	catalogdomain "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/domain"
 	catalogpersist "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/infrastructure/persistence"
 	crmdomain "github.com/Dovud1997/Dovud/backend/internal/modules/crm/domain"
 	crmpersist "github.com/Dovud1997/Dovud/backend/internal/modules/crm/infrastructure/persistence"
+	ffdomain "github.com/Dovud1997/Dovud/backend/internal/modules/fieldforce/domain"
+	ffpersist "github.com/Dovud1997/Dovud/backend/internal/modules/fieldforce/infrastructure/persistence"
 	identitydomain "github.com/Dovud1997/Dovud/backend/internal/modules/identity/domain"
 	identitypersist "github.com/Dovud1997/Dovud/backend/internal/modules/identity/infrastructure/persistence"
+	ordersdomain "github.com/Dovud1997/Dovud/backend/internal/modules/orders/domain"
+	orderspersist "github.com/Dovud1997/Dovud/backend/internal/modules/orders/infrastructure/persistence"
 	orgdomain "github.com/Dovud1997/Dovud/backend/internal/modules/organization/domain"
 	orgpersist "github.com/Dovud1997/Dovud/backend/internal/modules/organization/infrastructure/persistence"
 	tenantdomain "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/domain"
@@ -257,12 +263,15 @@ func seedBusinessDemo(ctx context.Context, db *gorm.DB, tenantID uuid.UUID, log 
 			return err
 		}
 		log.Info("seeded catalog", "sku", p.SKU)
+	} else {
+		productID = products[0].ID
 	}
 
 	customers, _, err := customerRepo.List(ctx, tenantID, 1, 1)
 	if err != nil {
 		return err
 	}
+	var customerID uuid.UUID
 	if len(customers) == 0 {
 		addr := "Chilonzor, Market 12"
 		lat, lng := 41.2856, 69.2034
@@ -273,10 +282,89 @@ func seedBusinessDemo(ctx context.Context, db *gorm.DB, tenantID uuid.UUID, log 
 		if err := customerRepo.Create(ctx, cust); err != nil {
 			return err
 		}
+		customerID = cust.ID
 		_ = contactRepo.Create(ctx, &crmdomain.CustomerContact{
 			CustomerID: cust.ID, FullName: "Dilshod Karimov", Phone: "+998901112233", IsPrimary: true,
 		})
 		log.Info("seeded customer", "code", cust.Code)
+	} else {
+		customerID = customers[0].ID
+	}
+
+	return seedFieldAndOrders(ctx, db, tenantID, branchID, customerID, productID, log)
+}
+
+func seedFieldAndOrders(ctx context.Context, db *gorm.DB, tenantID, branchID, customerID, productID uuid.UUID, log *slog.Logger) error {
+	userRepo := identitypersist.NewUserRepo(db)
+	agentRepo := ffpersist.NewAgentRepo(db)
+	routeRepo := ffpersist.NewRouteRepo(db)
+	orderRepo := orderspersist.NewOrderRepo(db)
+
+	agentUser, err := userRepo.FindByEmail(ctx, tenantID, "agent@demo.local")
+	if err != nil {
+		return nil
+	}
+
+	salesAgent, err := agentRepo.FindByUserID(ctx, tenantID, agentUser.ID)
+	if err != nil {
+		salesAgent = &ffdomain.SalesAgent{
+			TenantID: tenantID, UserID: agentUser.ID, BranchID: branchID,
+			EmployeeCode: "AG-001", Status: "active",
+		}
+		if err := agentRepo.Create(ctx, salesAgent); err != nil {
+			return err
+		}
+		log.Info("seeded sales agent", "code", salesAgent.EmployeeCode)
+	}
+
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	routes, _, err := routeRepo.List(ctx, tenantID, &salesAgent.ID, &today, 1, 1)
+	if err != nil {
+		return err
+	}
+	if len(routes) == 0 {
+		route := &ffdomain.Route{
+			TenantID: tenantID, AgentID: salesAgent.ID, Date: today,
+			Name: "Today route", Status: "planned", Version: 1,
+		}
+		if err := routeRepo.Create(ctx, route); err != nil {
+			return err
+		}
+		if err := routeRepo.ReplaceStops(ctx, route.ID, []ffdomain.RouteStop{
+			{RouteID: route.ID, CustomerID: customerID, Sequence: 1, Status: "pending"},
+		}); err != nil {
+			return err
+		}
+		log.Info("seeded route", "name", route.Name)
+	}
+
+	orders, _, err := orderRepo.List(ctx, tenantID, ordersdomain.OrderListFilters{}, 1, 1)
+	if err != nil {
+		return err
+	}
+	if len(orders) == 0 {
+		warehouses, _, _ := orgpersist.NewWarehouseRepo(db).List(ctx, tenantID, &branchID, 1, 1)
+		var warehouseID *uuid.UUID
+		if len(warehouses) > 0 {
+			warehouseID = &warehouses[0].ID
+		}
+		qty, price := 10.0, 8500.0
+		lineTotal := qty * price
+		clientReq := "seed-order-1"
+		order := &ordersdomain.Order{
+			TenantID: tenantID, Number: "ORD-DEMO-0001", CustomerID: customerID,
+			AgentID: &salesAgent.ID, BranchID: &branchID, WarehouseID: warehouseID,
+			Status: ordersdomain.StatusSubmitted, Currency: "UZS",
+			Subtotal: lineTotal, GrandTotal: lineTotal, OrderedAt: time.Now().UTC(),
+			ClientRequestID: &clientReq, Version: 1,
+		}
+		lines := []ordersdomain.OrderLine{
+			{ProductID: productID, Qty: qty, UnitPrice: price, LineTotal: lineTotal},
+		}
+		if err := orderRepo.Create(ctx, order, lines); err != nil {
+			return err
+		}
+		log.Info("seeded order", "number", order.Number)
 	}
 	return nil
 }

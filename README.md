@@ -2,7 +2,7 @@
 
 White Label SaaS platform for sales force automation — multi-tenant, offline-capable, enterprise-ready.
 
-**Status:** P1 delivered (Organization · Catalog · CRM) on top of P0 Identity/RBAC/Branding
+**Status:** P2 delivered (FieldForce · Orders) on top of P0–P1
 
 ## Architecture
 
@@ -55,15 +55,18 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 
 **P1 — Organization / Catalog / CRM**
 - Modules: `organization`, `catalog`, `crm`
-- Companies, branches, warehouses + stocks
-- Manufacturers, categories, products, price lists, promotions
-- Customers, contacts, addresses, customer categories
-- Demo seed: HQ branch, warehouse, product+price, demo customer
-- Flutter lists: Branches, Products, Customers
+- Companies, branches, warehouses, catalog, customers
 
-## Next (P2)
+**P2 — FieldForce / Orders**
+- Modules: `fieldforce`, `orders`
+- Agents, routes/stops, visit check-in/out, photos, comments, GPS batch/live
+- Orders with lines, status machine (draft→…→delivered), idempotent client_request_id
+- Demo seed: sales agent, today route, submitted order
+- Flutter lists: Routes, Orders (+ prior screens)
 
-FieldForce (agents, routes, visits, GPS, photos) · Orders foundation
+## Next (P3)
+
+Returns · Finance/AR · Offline Sync · Notifications · Dashboard/KPI
 
 ## Locales & themes
 

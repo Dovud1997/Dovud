@@ -9,6 +9,8 @@ import (
 	identitypersist "github.com/Dovud1997/Dovud/backend/internal/modules/identity/infrastructure/persistence"
 	catalogpersist "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/infrastructure/persistence"
 	crmpersist "github.com/Dovud1997/Dovud/backend/internal/modules/crm/infrastructure/persistence"
+	ffpersist "github.com/Dovud1997/Dovud/backend/internal/modules/fieldforce/infrastructure/persistence"
+	orderspersist "github.com/Dovud1997/Dovud/backend/internal/modules/orders/infrastructure/persistence"
 	orgpersist "github.com/Dovud1997/Dovud/backend/internal/modules/organization/infrastructure/persistence"
 	tenantpersist "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/infrastructure/persistence"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/auth"
@@ -53,6 +55,16 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&crmpersist.CustomerModel{},
 		&crmpersist.CustomerContactModel{},
 		&crmpersist.CustomerAddressModel{},
+		&ffpersist.SalesAgentModel{},
+		&ffpersist.RouteModel{},
+		&ffpersist.RouteStopModel{},
+		&ffpersist.VisitModel{},
+		&ffpersist.VisitPhotoModel{},
+		&ffpersist.VisitCommentModel{},
+		&ffpersist.GpsTrackModel{},
+		&orderspersist.OrderModel{},
+		&orderspersist.OrderLineModel{},
+		&orderspersist.OrderStatusHistoryModel{},
 	); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}

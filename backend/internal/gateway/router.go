@@ -3,6 +3,7 @@ package gateway
 import (
 	cataloghttp "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/interfaces/http"
 	crmhttp "github.com/Dovud1997/Dovud/backend/internal/modules/crm/interfaces/http"
+	ffhttp "github.com/Dovud1997/Dovud/backend/internal/modules/fieldforce/interfaces/http"
 	identityhttp "github.com/Dovud1997/Dovud/backend/internal/modules/identity/interfaces/http"
 	ordershttp "github.com/Dovud1997/Dovud/backend/internal/modules/orders/interfaces/http"
 	orghttp "github.com/Dovud1997/Dovud/backend/internal/modules/organization/interfaces/http"
@@ -21,6 +22,7 @@ type Deps struct {
 	Organization *orghttp.Handler
 	Catalog      *cataloghttp.Handler
 	CRM          *crmhttp.Handler
+	FieldForce   *ffhttp.Handler
 	Orders       *ordershttp.Handler
 }
 
@@ -47,6 +49,7 @@ func NewRouter(deps Deps) *fiber.App {
 	deps.Organization.Register(protected)
 	deps.Catalog.Register(protected)
 	deps.CRM.Register(protected)
+	deps.FieldForce.Register(protected)
 	deps.Orders.Register(protected)
 
 	return app

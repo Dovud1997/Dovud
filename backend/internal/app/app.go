@@ -12,6 +12,9 @@ import (
 	crmapp "github.com/Dovud1997/Dovud/backend/internal/modules/crm/application"
 	crmpersist "github.com/Dovud1997/Dovud/backend/internal/modules/crm/infrastructure/persistence"
 	crmhttp "github.com/Dovud1997/Dovud/backend/internal/modules/crm/interfaces/http"
+	ffapp "github.com/Dovud1997/Dovud/backend/internal/modules/fieldforce/application"
+	ffpersist "github.com/Dovud1997/Dovud/backend/internal/modules/fieldforce/infrastructure/persistence"
+	ffhttp "github.com/Dovud1997/Dovud/backend/internal/modules/fieldforce/interfaces/http"
 	identityapp "github.com/Dovud1997/Dovud/backend/internal/modules/identity/application"
 	identitypersist "github.com/Dovud1997/Dovud/backend/internal/modules/identity/infrastructure/persistence"
 	identityhttp "github.com/Dovud1997/Dovud/backend/internal/modules/identity/interfaces/http"
@@ -86,6 +89,11 @@ func New(cfgPath string) (*Application, error) {
 	addressRepo := crmpersist.NewCustomerAddressRepo(db)
 	customerCategoryRepo := crmpersist.NewCustomerCategoryRepo(db)
 
+	agentRepo := ffpersist.NewAgentRepo(db)
+	routeRepo := ffpersist.NewRouteRepo(db)
+	visitRepo := ffpersist.NewVisitRepo(db)
+	gpsRepo := ffpersist.NewGpsRepo(db)
+
 	orderRepo := orderspersist.NewOrderRepo(db)
 
 	authSvc := identityapp.NewAuthService(userRepo, refreshRepo, deviceRepo, tenantRepo, tokenSvc)
@@ -94,6 +102,7 @@ func New(cfgPath string) (*Application, error) {
 	orgSvc := orgapp.NewService(companyRepo, branchRepo, warehouseRepo)
 	catalogSvc := catalogapp.NewService(manufacturerRepo, categoryRepo, productRepo, priceRepo, promotionRepo)
 	crmSvc := crmapp.NewService(customerRepo, contactRepo, addressRepo, customerCategoryRepo)
+	ffSvc := ffapp.NewService(agentRepo, routeRepo, visitRepo, gpsRepo)
 	ordersSvc := ordersapp.NewService(orderRepo)
 
 	router := gateway.NewRouter(gateway.Deps{
@@ -103,6 +112,7 @@ func New(cfgPath string) (*Application, error) {
 		Organization: orghttp.NewHandler(orgSvc),
 		Catalog:      cataloghttp.NewHandler(catalogSvc),
 		CRM:          crmhttp.NewHandler(crmSvc),
+		FieldForce:   ffhttp.NewHandler(ffSvc),
 		Orders:       ordershttp.NewHandler(ordersSvc),
 	})
 
@@ -136,6 +146,13 @@ func autoMigrate(db *gorm.DB) error {
 		&crmpersist.CustomerModel{},
 		&crmpersist.CustomerContactModel{},
 		&crmpersist.CustomerAddressModel{},
+		&ffpersist.SalesAgentModel{},
+		&ffpersist.RouteModel{},
+		&ffpersist.RouteStopModel{},
+		&ffpersist.VisitModel{},
+		&ffpersist.VisitPhotoModel{},
+		&ffpersist.VisitCommentModel{},
+		&ffpersist.GpsTrackModel{},
 		&orderspersist.OrderModel{},
 		&orderspersist.OrderLineModel{},
 		&orderspersist.OrderStatusHistoryModel{},
