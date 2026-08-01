@@ -1,0 +1,14 @@
+{
+  "@@locale": "ru",
+  "appTitle": "Автоматизация продаж",
+  "login": "Войти",
+  "email": "Email",
+  "password": "Пароль",
+  "tenantCode": "Код компании",
+  "loginSubtitle": "Полевые продажи под вашим брендом.",
+  "dashboard": "Дашборд",
+  "logout": "Выйти",
+  "theme": "Тема",
+  "language": "Язык",
+  "welcome": "Добро пожаловать, {name}"
+}

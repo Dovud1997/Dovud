@@ -1,0 +1,30 @@
+app:
+  name: sfa-api
+  env: local
+  http_addr: ":8080"
+  public_base_url: "http://localhost:8080"
+
+database:
+  dsn: "host=localhost user=sfa password=sfa dbname=sfa port=5432 sslmode=disable TimeZone=UTC"
+
+redis:
+  addr: "localhost:6379"
+  password: ""
+  db: 0
+
+auth:
+  access_secret: "dev-access-secret-change-in-production-32"
+  refresh_secret: "dev-refresh-secret-change-in-production-32"
+  access_ttl_minutes: 15
+  refresh_ttl_days: 30
+  issuer: "sfa"
+
+minio:
+  endpoint: "localhost:9000"
+  access_key: "minioadmin"
+  secret_key: "minioadmin"
+  bucket: "sfa"
+  use_ssl: false
+
+rabbitmq:
+  url: "amqp://sfa:sfa@localhost:5672/"

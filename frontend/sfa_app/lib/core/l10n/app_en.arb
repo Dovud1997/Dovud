@@ -1,0 +1,19 @@
+{
+  "@@locale": "en",
+  "appTitle": "Sales Force Automation",
+  "login": "Sign in",
+  "email": "Email",
+  "password": "Password",
+  "tenantCode": "Company code",
+  "loginSubtitle": "Field sales, under your brand.",
+  "dashboard": "Dashboard",
+  "logout": "Log out",
+  "theme": "Theme",
+  "language": "Language",
+  "welcome": "Welcome, {name}",
+  "@welcome": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  }
+}

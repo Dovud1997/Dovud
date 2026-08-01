@@ -2,37 +2,73 @@
 
 White Label SaaS platform for sales force automation — multi-tenant, offline-capable, enterprise-ready.
 
-**Status:** Architecture design complete — awaiting confirmation before implementation.
+**Status:** P0 implementation in progress (Identity · Tenant/Branding · RBAC · Flutter shell)
 
-## Architecture Documentation
+## Architecture
 
-Full system design (no application code yet):
+Full design pack: **[docs/architecture/README.md](docs/architecture/README.md)**
 
-👉 **[docs/architecture/README.md](docs/architecture/README.md)**
+## Stack
 
-| Topic | Doc |
-|-------|-----|
-| System architecture | [01](docs/architecture/01-system-architecture.md) |
-| Folder structure | [02](docs/architecture/02-folder-structure.md) |
-| Backend | [03](docs/architecture/03-backend-architecture.md) |
-| Frontend (Flutter) | [04](docs/architecture/04-frontend-architecture.md) |
-| Database & indexes | [05](docs/architecture/05-database-design.md) |
-| ER / UML / Sequence | [06](docs/architecture/06-diagrams.md) |
-| Entities & relations | [07](docs/architecture/07-entities-and-relations.md) |
-| API map | [08](docs/architecture/08-api-specification.md) |
-| Services, RabbitMQ, Redis, Jobs | [09](docs/architecture/09-infrastructure-map.md) |
-| Screens & flows | [10](docs/architecture/10-screens-and-flows.md) |
-| Offline sync | [11](docs/architecture/11-offline-sync.md) |
-| Security, scale, backup, deploy | [12](docs/architecture/12-security-scale-ops.md) |
-
-## Planned Stack
-
-- **Backend:** Go, Fiber, GORM, PostgreSQL, Redis, RabbitMQ, MinIO
+- **Backend:** Go, Fiber, GORM, PostgreSQL (SQLite for local/dev), Redis, RabbitMQ, MinIO
 - **Frontend:** Flutter (Android, iOS, Web Admin)
-- **Architecture:** Clean Architecture, DDD, CQRS (where needed), RBAC, JWT + Refresh
-- **Delivery:** Docker, Kubernetes-ready, White Label SaaS
+- **Delivery:** Docker Compose, Kubernetes-ready Dockerfile
 
-## Locales & Themes
+## Quick start (local API)
+
+```bash
+# Option A — SQLite (no Docker required)
+cd backend
+go mod tidy
+SFA_DATABASE_DSN='sqlite:file:./sfa_dev.db?cache=shared&mode=rwc' go run ./cmd/api -config configs/config.yaml
+
+# Option B — Postgres + infra
+docker compose up -d postgres redis rabbitmq minio
+cd backend && go run ./cmd/api -config configs/config.yaml
+```
+
+API: `http://localhost:8080/api/v1`
+
+### Demo tenant
+
+| Field | Value |
+|-------|-------|
+| Tenant code | `demo` |
+| Admin | `admin@demo.local` / `Admin123!` |
+| Agent | `agent@demo.local` / `Agent123!` |
+
+### Smoke
+
+```bash
+curl -s http://localhost:8080/api/v1/public/health
+curl -s 'http://localhost:8080/api/v1/public/branding?tenant=demo'
+curl -s -X POST http://localhost:8080/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"tenant_code":"demo","email":"admin@demo.local","password":"Admin123!"}'
+```
+
+## P0 delivered
+
+**Backend**
+
+- Clean Architecture modules: `identity`, `tenant`
+- JWT access + rotating refresh tokens
+- RBAC permissions/roles/users APIs
+- White-label public branding + admin branding/domains
+- Seed data, AutoMigrate, SQL migrations for Postgres
+- Unit/integration tests for auth
+
+**Frontend**
+
+- Flutter app skeleton under `frontend/sfa_app`
+- Login, session, branding theme, dashboard shell
+- i18n ARB: Russian, Uzbek, English
+
+## Next (P1)
+
+Organization (companies/branches/warehouses) · Catalog · CRM
+
+## Locales & themes
 
 - Languages: Russian, Uzbek, English
 - Themes: Light, Dark, Brand Color (per tenant)

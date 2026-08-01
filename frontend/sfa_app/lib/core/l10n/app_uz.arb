@@ -1,0 +1,14 @@
+{
+  "@@locale": "uz",
+  "appTitle": "Sotuvlarni avtomatlashtirish",
+  "login": "Kirish",
+  "email": "Email",
+  "password": "Parol",
+  "tenantCode": "Kompaniya kodi",
+  "loginSubtitle": "Sizning brendingiz ostida maydon sotuvlari.",
+  "dashboard": "Boshqaruv paneli",
+  "logout": "Chiqish",
+  "theme": "Mavzu",
+  "language": "Til",
+  "welcome": "Xush kelibsiz, {name}"
+}
