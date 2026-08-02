@@ -22,6 +22,7 @@ import 'package:sfa_app/features/orders/presentation/orders_page.dart';
 import 'package:sfa_app/features/organization/presentation/branches_page.dart';
 import 'package:sfa_app/features/portal/presentation/portal_links_page.dart';
 import 'package:sfa_app/features/portal/presentation/portal_page.dart';
+import 'package:sfa_app/features/returns/presentation/return_compose_page.dart';
 import 'package:sfa_app/features/returns/presentation/returns_page.dart';
 import 'package:sfa_app/features/sync/presentation/conflict_resolve_page.dart';
 import 'package:sfa_app/features/sync/presentation/sync_page.dart';
@@ -110,6 +111,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ],
       ),
       GoRoute(path: '/field/notifications', builder: (context, state) => const NotificationsPage()),
+      GoRoute(
+        path: '/field/returns',
+        builder: (context, state) => const ReturnsPage(),
+        routes: [
+          GoRoute(path: 'new', builder: (context, state) => const ReturnComposePage()),
+        ],
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) => AdminShell(navigationShell: navigationShell),
         branches: [
@@ -138,7 +146,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           ]),
           StatefulShellBranch(routes: [
-            GoRoute(path: '/returns', builder: (context, state) => const ReturnsPage()),
+            GoRoute(
+              path: '/returns',
+              builder: (context, state) => const ReturnsPage(),
+              routes: [
+                GoRoute(path: 'new', builder: (context, state) => const ReturnComposePage()),
+              ],
+            ),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(path: '/receivables', builder: (context, state) => const ReceivablesPage()),

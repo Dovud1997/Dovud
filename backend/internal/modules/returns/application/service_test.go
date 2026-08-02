@@ -14,6 +14,17 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+type memRecorder struct {
+	n int
+	lastType string
+}
+
+func (m *memRecorder) RecordChange(_ context.Context, _ uuid.UUID, entityType, _ string, _ int64, _ bool, _ any) error {
+	m.n++
+	m.lastType = entityType
+	return nil
+}
+
 func TestReturnCreateSubmitApprove(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	if err != nil {
@@ -26,7 +37,8 @@ func TestReturnCreateSubmitApprove(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	svc := application.NewService(returnspersist.NewReturnRepo(db))
+	rec := &memRecorder{}
+	svc := application.NewService(returnspersist.NewReturnRepo(db)).WithSync(rec)
 	tenantID := uuid.New()
 	customerID := uuid.New()
 	productID := uuid.New()
@@ -45,6 +57,9 @@ func TestReturnCreateSubmitApprove(t *testing.T) {
 	if !strings.HasPrefix(ret.Number, "RET-") {
 		t.Fatalf("number=%v", ret.Number)
 	}
+	if rec.n < 1 || rec.lastType != "return" {
+		t.Fatalf("expected return sync fan-out, got n=%d type=%s", rec.n, rec.lastType)
+	}
 
 	submitted, err := svc.Submit(ctx, tenantID, ret.ID)
 	if err != nil || submitted.Status != domain.StatusSubmitted {
@@ -54,5 +69,8 @@ func TestReturnCreateSubmitApprove(t *testing.T) {
 	approved, err := svc.Approve(ctx, tenantID, ret.ID)
 	if err != nil || approved.Status != domain.StatusApproved {
 		t.Fatalf("approve: err=%v status=%v", err, approved)
+	}
+	if rec.n < 3 {
+		t.Fatalf("expected create+submit+approve fan-out, got %d", rec.n)
 	}
 }

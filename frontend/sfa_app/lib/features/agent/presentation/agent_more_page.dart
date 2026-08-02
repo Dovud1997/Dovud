@@ -27,6 +27,12 @@ class AgentMorePage extends ConsumerWidget {
           title: const Text('Notifications'),
           onTap: () => context.push('/field/notifications'),
         ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.assignment_return_outlined),
+          title: const Text('Returns'),
+          onTap: () => context.push('/field/returns'),
+        ),
         const Divider(),
         ListTile(
           contentPadding: EdgeInsets.zero,

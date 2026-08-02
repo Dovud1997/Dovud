@@ -193,11 +193,12 @@ func New(cfgPath string) (*Application, error) {
 	}
 	liveHub := ws.NewHub(log)
 	syncSvc.WithLive(liveHub)
-	syncSvc.WithApplicator(syncapply.New(customerRepo, orderRepo, visitRepo))
+	syncSvc.WithApplicator(syncapply.New(customerRepo, orderRepo, visitRepo, returnRepo))
 	crmSvc.WithSync(syncSvc)
 	ffSvc.WithSync(syncSvc)
 	ordersSvc.WithSync(syncSvc)
 	catalogSvc.WithSync(syncSvc)
+	returnsSvc.WithSync(syncSvc)
 	notifySvc := notifyapp.NewService(notifyRepo, outboxStore)
 	analyticsSvc := analyticsapp.NewService(kpiRepo, db)
 	auditSvc := auditapp.NewService(auditRepo, outboxStore)

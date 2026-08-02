@@ -7,6 +7,7 @@ import (
 	crmdomain "github.com/Dovud1997/Dovud/backend/internal/modules/crm/domain"
 	ffdomain "github.com/Dovud1997/Dovud/backend/internal/modules/fieldforce/domain"
 	ordersdomain "github.com/Dovud1997/Dovud/backend/internal/modules/orders/domain"
+	returnsdomain "github.com/Dovud1997/Dovud/backend/internal/modules/returns/domain"
 	"github.com/google/uuid"
 )
 
@@ -163,5 +164,49 @@ func visitPayload(v *ffdomain.Visit) map[string]any {
 		"checkin_lat": v.CheckinLat, "checkin_lng": v.CheckinLng,
 		"checkout_lat": v.CheckoutLat, "checkout_lng": v.CheckoutLng,
 		"result": v.Result, "notes": v.Notes, "version": v.Version,
+	}
+}
+
+func parseReturnLines(payload map[string]any) []returnsdomain.ReturnLine {
+	raw, ok := payload["lines"].([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]returnsdomain.ReturnLine, 0, len(raw))
+	for _, item := range raw {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		pid, err := uuid.Parse(strOr(m, "product_id", ""))
+		if err != nil {
+			continue
+		}
+		qty := floatOr(m, "qty", 0)
+		unit := floatOr(m, "unit_price", 0)
+		total := qty * unit
+		if m["line_total"] != nil {
+			total = floatOr(m, "line_total", total)
+		}
+		out = append(out, returnsdomain.ReturnLine{
+			ProductID: pid, Qty: qty, UnitPrice: unit, LineTotal: total, Reason: strPtrOr(m, "reason"),
+		})
+	}
+	return out
+}
+
+func returnPayload(r *returnsdomain.Return, lines []returnsdomain.ReturnLine) map[string]any {
+	lineMaps := make([]map[string]any, 0, len(lines))
+	for _, l := range lines {
+		lineMaps = append(lineMaps, map[string]any{
+			"id": l.ID.String(), "product_id": l.ProductID.String(), "qty": l.Qty,
+			"unit_price": l.UnitPrice, "line_total": l.LineTotal, "reason": l.Reason,
+		})
+	}
+	return map[string]any{
+		"id": r.ID.String(), "number": r.Number, "customer_id": r.CustomerID.String(),
+		"order_id": r.OrderID, "agent_id": r.AgentID, "status": r.Status, "reason": r.Reason,
+		"currency": r.Currency, "subtotal": r.Subtotal, "tax_total": r.TaxTotal,
+		"grand_total": r.GrandTotal, "version": r.Version, "lines": lineMaps,
 	}
 }

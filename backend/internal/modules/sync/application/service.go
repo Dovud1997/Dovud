@@ -613,6 +613,8 @@ func domainLiveEvent(entityType string) string {
 		return "visit.updated"
 	case "product", "product_price":
 		return "product.updated"
+	case "return":
+		return "return.updated"
 	case "notification":
 		return "notification.created"
 	default:

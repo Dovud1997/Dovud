@@ -270,7 +270,13 @@ Without Firebase configured, the app falls back to `stub-push-*` tokens (worker 
 - Conflict UI summarizes nested `lines`
 - Helm chart `0.26.0`
 
-Roadmap phases P1–P26 delivered. Optional polish: Redis Pub/Sub WS scale-out, OS background sync, SQLCipher.
+**P27 — Returns sync · agent return compose**
+- Returns `WithSync` on create / draft update / status transitions → changelog
+- Sync `DomainApplicator` supports `return` create·update·delete (cancel)
+- WS `return.updated`; agent More → Returns + compose with lines
+- Helm chart `0.27.0`
+
+Roadmap phases P1–P27 delivered. Optional polish: notifications mark-read, Redis Pub/Sub WS scale-out, OS background sync, SQLCipher, GPS offline.
 
 ## Locales & themes
 

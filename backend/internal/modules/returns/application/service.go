@@ -10,15 +10,29 @@ import (
 
 	"github.com/Dovud1997/Dovud/backend/internal/modules/returns/domain"
 	apperrors "github.com/Dovud1997/Dovud/backend/internal/platform/errors"
+	"github.com/Dovud1997/Dovud/backend/internal/platform/syncport"
 	"github.com/google/uuid"
 )
 
 type Service struct {
 	returns domain.ReturnRepository
+	sync    syncport.ChangeRecorder
 }
 
 func NewService(returns domain.ReturnRepository) *Service {
 	return &Service{returns: returns}
+}
+
+func (s *Service) WithSync(rec syncport.ChangeRecorder) *Service {
+	s.sync = rec
+	return s
+}
+
+func (s *Service) record(ctx context.Context, tenantID uuid.UUID, dto *ReturnDTO) {
+	if s.sync == nil || dto == nil || !syncport.ShouldFanout(ctx) {
+		return
+	}
+	_ = s.sync.RecordChange(ctx, tenantID, "return", dto.ID.String(), dto.Version, false, dto)
 }
 
 type ReturnLineDTO struct {
@@ -183,6 +197,7 @@ func (s *Service) CreateReturn(ctx context.Context, tenantID uuid.UUID, in Creat
 		return nil, err
 	}
 	dto := toReturnDTO(*ret, lines)
+	s.record(ctx, tenantID, &dto)
 	return &dto, nil
 }
 
@@ -248,6 +263,7 @@ func (s *Service) UpdateDraft(ctx context.Context, tenantID, id uuid.UUID, in Up
 	}
 
 	dto := toReturnDTO(*r, lines)
+	s.record(ctx, tenantID, &dto)
 	return &dto, nil
 }
 
@@ -267,6 +283,7 @@ func (s *Service) transition(ctx context.Context, tenantID, id uuid.UUID, toStat
 		return nil, err
 	}
 	dto := toReturnDTO(*r, lines)
+	s.record(ctx, tenantID, &dto)
 	return &dto, nil
 }
 
@@ -294,6 +311,7 @@ func (s *Service) Reject(ctx context.Context, tenantID, id uuid.UUID, reason *st
 		return nil, err
 	}
 	dto := toReturnDTO(*r, lines)
+	s.record(ctx, tenantID, &dto)
 	return &dto, nil
 }
 
