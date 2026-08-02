@@ -304,7 +304,14 @@ Without Firebase configured, the app falls back to `stub-push-*` tokens (worker 
 - Agent Routes: GPS button (demo coords); SyncWorker flushes GPS with uploads
 - Helm chart `0.32.0`
 
-Roadmap phases P1–P32 delivered. Optional polish: OS background sync, SQLCipher.
+**P33 — OS background sync**
+- Workmanager periodic task (~15m) on Android/iOS; web stub no-op
+- Headless isolate: JWT refresh → outbox push → pull/cache → file + GPS flush
+- Schedule while authenticated; cancel on SyncWorker dispose (logout)
+- Sync center: foreground vs OS background status
+- Helm chart `0.33.0`
+
+Roadmap phases P1–P33 delivered. Optional polish: SQLCipher, device GPS.
 
 ## Locales & themes
 

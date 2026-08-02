@@ -142,12 +142,21 @@ Conflicts stored in `sync_conflicts` + client Sync Center (S13/S14).
 ## Background Sync
 
 ```
-App foreground: sync every N seconds + on connectivity regain
-App background: OS task every ~15m (best effort)
-Triggers: order saved, visit checkout, photo captured, manual "Sync now"
+App foreground: sync every ~45s + on connectivity regain + on resume
+App background: OS task every ~15m (Android WorkManager; iOS BGAppRefresh / BGTask best effort)
+Triggers: order saved, visit checkout, photo captured, manual "Sync now", OS periodic
 ```
 
-Indicators: synced / syncing / offline pending(count) / conflict(count).
+### Client implementation (Flutter)
+
+| Layer | Behavior |
+|-------|----------|
+| `SyncWorker` | Foreground timer / connectivity / resume; schedules OS task while authenticated |
+| `background_sync` (IO) | `workmanager` periodic unique task `sfa.background.sync` (~15m, network required) |
+| `background_sync` (web) | No-op stub |
+| Headless isolate | Refresh JWT → push outbox → pull/cache → flush file uploads + GPS queue |
+
+Indicators: synced / syncing / offline pending(count) / conflict(count); Sync center shows foreground + OS background status.
 
 ---
 
