@@ -12,6 +12,25 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+type memRecorder struct {
+	calls []struct {
+		EntityType string
+		EntityID   string
+		Version    int64
+		Deleted    bool
+	}
+}
+
+func (m *memRecorder) RecordChange(_ context.Context, _ uuid.UUID, entityType, entityID string, version int64, deleted bool, _ any) error {
+	m.calls = append(m.calls, struct {
+		EntityType string
+		EntityID   string
+		Version    int64
+		Deleted    bool
+	}{entityType, entityID, version, deleted})
+	return nil
+}
+
 func TestCreateProductAndPrice(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	if err != nil {
@@ -29,13 +48,14 @@ func TestCreateProductAndPrice(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	rec := &memRecorder{}
 	svc := application.NewService(
 		catalogpersist.NewManufacturerRepo(db),
 		catalogpersist.NewCategoryRepo(db),
 		catalogpersist.NewProductRepo(db),
 		catalogpersist.NewPriceRepo(db),
 		catalogpersist.NewPromotionRepo(db),
-	)
+	).WithSync(rec)
 	tenantID := uuid.New()
 	ctx := context.Background()
 
@@ -63,5 +83,11 @@ func TestCreateProductAndPrice(t *testing.T) {
 	}
 	if price.Amount != 1000 {
 		t.Fatalf("unexpected amount %v", price.Amount)
+	}
+	if len(rec.calls) < 2 {
+		t.Fatalf("expected product+price sync fan-out, got %+v", rec.calls)
+	}
+	if rec.calls[0].EntityType != "product" || rec.calls[1].EntityType != "product_price" {
+		t.Fatalf("fan-out order %+v", rec.calls)
 	}
 }

@@ -17,6 +17,7 @@ import 'package:sfa_app/features/finance/presentation/receivables_page.dart';
 import 'package:sfa_app/features/identity/presentation/roles_page.dart';
 import 'package:sfa_app/features/identity/presentation/users_page.dart';
 import 'package:sfa_app/features/notifications/presentation/notifications_page.dart';
+import 'package:sfa_app/features/orders/presentation/order_compose_page.dart';
 import 'package:sfa_app/features/orders/presentation/orders_page.dart';
 import 'package:sfa_app/features/organization/presentation/branches_page.dart';
 import 'package:sfa_app/features/portal/presentation/portal_links_page.dart';
@@ -72,7 +73,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             GoRoute(path: '/field/customers', builder: (context, state) => const CustomersPage()),
           ]),
           StatefulShellBranch(routes: [
-            GoRoute(path: '/field/orders', builder: (context, state) => const OrdersPage()),
+            GoRoute(
+              path: '/field/orders',
+              builder: (context, state) => const OrdersPage(),
+              routes: [
+                GoRoute(path: 'new', builder: (context, state) => const OrderComposePage()),
+              ],
+            ),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(path: '/field/routes', builder: (context, state) => const RoutesPage()),
@@ -122,7 +129,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             GoRoute(path: '/routes', builder: (context, state) => const RoutesPage()),
           ]),
           StatefulShellBranch(routes: [
-            GoRoute(path: '/orders', builder: (context, state) => const OrdersPage()),
+            GoRoute(
+              path: '/orders',
+              builder: (context, state) => const OrdersPage(),
+              routes: [
+                GoRoute(path: 'new', builder: (context, state) => const OrderComposePage()),
+              ],
+            ),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(path: '/returns', builder: (context, state) => const ReturnsPage()),

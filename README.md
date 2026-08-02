@@ -262,7 +262,15 @@ Without Firebase configured, the app falls back to `stub-push-*` tokens (worker 
 - Flutter conflict UI: per-field checkboxes (yours vs server) → Apply merge
 - Helm chart `0.25.0`
 
-Roadmap phases P1–P25 delivered. Remaining polish (nested `lines` merge UX, extra WS event types) is optional.
+**P26 — Catalog sync · draft order with lines · live pull**
+- Catalog `product` / `product_price` → `RecordChange` fan-out; demo seed writes initial changelog
+- Agent order compose: customer + product picker + qty/price lines (online-first + outbox)
+- `LiveChannel` triggers `SyncWorker.tick` on `sync.invalidate` and domain WS events
+- Domain WS: `order.updated` / `visit.updated` / `product.updated` / `notification.created`
+- Conflict UI summarizes nested `lines`
+- Helm chart `0.26.0`
+
+Roadmap phases P1–P26 delivered. Optional polish: Redis Pub/Sub WS scale-out, OS background sync, SQLCipher.
 
 ## Locales & themes
 

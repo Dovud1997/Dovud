@@ -88,4 +88,14 @@ class OfflineStore implements EntityCache {
       'backend': cacheBackendLabel,
     };
   }
+
+  /// Upsert a batch of entities into the local cache (API warm-start).
+  Future<int> warmEntities(String type, List<Map<String, dynamic>> rows) async {
+    for (final row in rows) {
+      final id = row['id']?.toString();
+      if (id == null || id.isEmpty) continue;
+      await upsertEntity(type, {...row, 'id': id});
+    }
+    return rows.length;
+  }
 }
