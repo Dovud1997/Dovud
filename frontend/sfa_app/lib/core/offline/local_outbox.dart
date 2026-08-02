@@ -1,11 +1,13 @@
-import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sfa_app/core/offline/secure_blob_store.dart';
+import 'package:sfa_app/core/offline/outbox_factory.dart';
+import 'package:sfa_app/core/offline/outbox_store.dart';
 import 'package:sfa_app/features/sync/data/sync_repository.dart';
 
 final localOutboxProvider = Provider<LocalOutbox>((ref) {
-  return LocalOutbox(ref.watch(syncRepositoryProvider));
+  return LocalOutbox(
+    ref.watch(syncRepositoryProvider),
+    store: createOutboxStore(),
+  );
 });
 
 class OutboxOp {
@@ -59,40 +61,27 @@ class OutboxOp {
       };
 }
 
+/// Sync outbox orchestration; persistence via [OutboxStore] (Drift or blob).
 class LocalOutbox {
-  LocalOutbox(this._sync, {SecureBlobStore? blobs}) : _blobs = blobs ?? SecureBlobStore();
+  LocalOutbox(this._sync, {OutboxStore? store}) : _store = store ?? createOutboxStore();
 
-  static const _key = 'sfa_local_outbox_v1';
   final SyncRepository _sync;
-  final SecureBlobStore _blobs;
+  final OutboxStore _store;
 
-  Future<List<OutboxOp>> list() async {
-    final raw = await _blobs.read(_key);
-    if (raw == null || raw.isEmpty) return const [];
-    final list = jsonDecode(raw) as List<dynamic>;
-    return list.map((e) => OutboxOp.fromJson(Map<String, dynamic>.from(e as Map))).toList();
-  }
+  String get backendLabel => outboxBackendLabel();
 
-  Future<void> enqueue(OutboxOp op) async {
-    final current = await list();
-    current.add(op);
-    await _blobs.write(_key, jsonEncode(current.map((e) => e.toJson()).toList()));
-  }
+  Future<List<OutboxOp>> list() => _store.list();
 
-  Future<void> clear() async {
-    await _blobs.remove(_key);
-  }
+  Future<void> enqueue(OutboxOp op) => _store.enqueue(op);
 
-  Future<void> removeByOpIds(Iterable<String> ids) async {
-    final set = ids.toSet();
-    final remaining = (await list()).where((o) => !set.contains(o.opId)).toList();
-    await _blobs.write(_key, jsonEncode(remaining.map((e) => e.toJson()).toList()));
-  }
+  Future<void> clear() => _store.clear();
+
+  Future<void> removeByOpIds(Iterable<String> ids) => _store.removeByOpIds(ids);
 
   Future<Map<String, dynamic>> flush({String deviceId = 'flutter-web'}) async {
     final pending = await list();
     if (pending.isEmpty) {
-      return {'pushed': 0, 'acked': 0, 'conflicts': 0, 'rejected': 0};
+      return {'pushed': 0, 'acked': 0, 'conflicts': 0, 'rejected': 0, 'backend': backendLabel};
     }
     final res = await _sync.push(
       deviceId: deviceId,
@@ -123,6 +112,7 @@ class LocalOutbox {
       'conflicts': conflicts,
       'rejected': rejected,
       'remaining': (await list()).length,
+      'backend': backendLabel,
     };
   }
 }

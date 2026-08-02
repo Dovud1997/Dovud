@@ -87,7 +87,10 @@ class _SyncPageState extends ConsumerState<SyncPage> {
                   ),
                   ListTile(
                     title: const Text('Local outbox'),
-                    subtitle: Text('$outboxCount pending ops'),
+                    subtitle: Text(
+                      '$outboxCount pending ops '
+                      '(${ref.watch(localOutboxProvider).backendLabel})',
+                    ),
                   ),
                   ListTile(
                     title: const Text('Offline cache'),
