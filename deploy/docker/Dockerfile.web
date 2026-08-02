@@ -1,0 +1,17 @@
+# Build Flutter web from repo root context
+FROM ghcr.io/cirruslabs/flutter:stable AS build
+WORKDIR /app
+COPY frontend/sfa_app/pubspec.yaml frontend/sfa_app/l10n.yaml frontend/sfa_app/analysis_options.yaml ./
+COPY frontend/sfa_app/lib ./lib
+COPY frontend/sfa_app/assets ./assets
+COPY frontend/sfa_app/web ./web
+RUN flutter config --enable-web \
+ && flutter pub get \
+ && flutter gen-l10n \
+ && flutter build web --release \
+      --dart-define=API_BASE_URL=/api/v1
+
+FROM nginx:1.27-alpine
+COPY --from=build /app/build/web /usr/share/nginx/html
+COPY deploy/docker/nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80

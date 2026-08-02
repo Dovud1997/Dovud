@@ -2,7 +2,7 @@
 
 White Label SaaS platform for sales force automation — multi-tenant, offline-capable, enterprise-ready.
 
-**Status:** P12 delivered (FCM HTTP v1 push driver) on top of P0–P11
+**Status:** P13 delivered (Multi-device push fan-out · EntityCache) on top of P0–P12
 
 ## Architecture
 
@@ -13,6 +13,22 @@ Full design pack: **[docs/architecture/README.md](docs/architecture/README.md)**
 - **Backend:** Go, Fiber, GORM, PostgreSQL (SQLite for local/dev), Redis, RabbitMQ, MinIO
 - **Frontend:** Flutter (Android, iOS, Web Admin)
 - **Delivery:** Docker Compose, Kubernetes-ready Dockerfile
+
+## Quick start (Docker)
+
+```bash
+# Full stack: Postgres, Redis, RabbitMQ, MinIO, API, worker, scheduler, Web Admin
+docker compose up --build -d
+
+# Web UI:  http://localhost:3000
+# API:     http://localhost:8080/api/v1
+# Mailhog: http://localhost:8025
+# MinIO:   http://localhost:9001  (minioadmin / minioadmin)
+```
+
+Demo login in the browser: tenant `demo`, `admin@demo.local` / `Admin123!`
+
+On restricted VMs where container DNS/routing fails, run services with `network_mode: host` (Linux only) or use local SQLite API + `flutter run -d chrome`.
 
 ## Quick start (local API)
 
@@ -147,9 +163,14 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 - Providers admin UI supports FCM fields
 - Helm chart `0.12.0`
 
-## Next (P13+)
+**P13 — Multi-device push fan-out · EntityCache**
+- Worker fans out push to all usable device tokens (dedupe, skip stubs); partial success OK
+- Flutter `EntityCache` interface; `OfflineStore` implements it (blob backend until Drift)
+- Helm chart `0.13.0`
 
-Drift/Isar local DB · firebase_messaging / APNs client wiring · multi-device push fan-out
+## Next (P14+)
+
+Drift/sqflite entity tables · firebase_messaging / APNs client · per-device delivery rows
 
 ## Locales & themes
 

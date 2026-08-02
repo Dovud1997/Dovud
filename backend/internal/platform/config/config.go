@@ -148,6 +148,9 @@ func Load(path string) (*Config, error) {
 	if addr := os.Getenv("SFA_HTTP_ADDR"); addr != "" {
 		cfg.App.HTTPAddr = addr
 	}
+	if v := os.Getenv("SFA_PUBLIC_BASE_URL"); v != "" {
+		cfg.App.PublicBaseURL = v
+	}
 	if secret := os.Getenv("SFA_ACCESS_SECRET"); secret != "" {
 		cfg.Auth.AccessSecret = secret
 	}

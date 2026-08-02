@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sfa_app/core/offline/entity_cache.dart';
 import 'package:sfa_app/core/offline/local_outbox.dart';
 import 'package:sfa_app/core/offline/secure_blob_store.dart';
 import 'package:sfa_app/features/sync/data/sync_repository.dart';
@@ -9,8 +10,9 @@ final offlineStoreProvider = Provider<OfflineStore>((ref) {
   return OfflineStore(ref.watch(syncRepositoryProvider), ref.watch(localOutboxProvider));
 });
 
-/// Encrypted local cache (SharedPreferences + secure key). Swap to Drift/Isar later.
-class OfflineStore {
+/// Encrypted local cache (SharedPreferences + secure key). Implements [EntityCache]
+/// so Drift/Isar can replace storage later without Sync UI changes.
+class OfflineStore implements EntityCache {
   OfflineStore(this._sync, this.outbox, {SecureBlobStore? blobs})
       : _blobs = blobs ?? SecureBlobStore();
 
@@ -38,6 +40,7 @@ class OfflineStore {
     await _blobs.write(_entitiesKey, jsonEncode(data));
   }
 
+  @override
   Future<void> upsertEntity(String type, Map<String, dynamic> entity) async {
     final id = entity['id']?.toString();
     if (id == null || id.isEmpty) return;
@@ -53,15 +56,27 @@ class OfflineStore {
     await _saveEntities(all);
   }
 
+  @override
+  Future<void> deleteEntity(String type, String id) async {
+    if (id.isEmpty) return;
+    final all = await _loadEntities();
+    final list = all[type] ?? <Map<String, dynamic>>[];
+    all[type] = list.where((e) => e['id']?.toString() != id).toList();
+    await _saveEntities(all);
+  }
+
+  @override
   Future<List<Map<String, dynamic>>> listEntities(String type) async {
     final all = await _loadEntities();
     return all[type] ?? const [];
   }
 
+  @override
   Future<String?> cursor() async {
     return _blobs.read(_cursorKey);
   }
 
+  @override
   Future<void> setCursor(String value) async {
     await _blobs.write(_cursorKey, value);
   }
@@ -78,10 +93,7 @@ class OfflineStore {
         payload['id'] = m['entity_id'];
       }
       if (m['deleted'] == true) {
-        final all = await _loadEntities();
-        final list = all[type] ?? <Map<String, dynamic>>[];
-        all[type] = list.where((e) => e['id']?.toString() != m['entity_id']?.toString()).toList();
-        await _saveEntities(all);
+        await deleteEntity(type, m['entity_id']?.toString() ?? '');
       } else {
         await upsertEntity(type, payload);
       }

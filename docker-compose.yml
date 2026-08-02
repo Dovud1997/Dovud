@@ -59,6 +59,8 @@ services:
       SFA_RABBITMQ_URL: amqp://sfa:sfa@rabbitmq:5672/
       SFA_MINIO_ENDPOINT: minio:9000
       SFA_STORAGE_DRIVER: minio
+      SFA_PUBLIC_BASE_URL: http://localhost:8080
+      SFA_CORS_ORIGINS: "*"
     ports:
       - "8080:8080"
     depends_on:
@@ -108,6 +110,15 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_started
+
+  web:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.web
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
 
 volumes:
   sfa_pg:
