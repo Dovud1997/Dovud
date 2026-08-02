@@ -22,6 +22,7 @@ import 'package:sfa_app/features/organization/presentation/branches_page.dart';
 import 'package:sfa_app/features/portal/presentation/portal_links_page.dart';
 import 'package:sfa_app/features/portal/presentation/portal_page.dart';
 import 'package:sfa_app/features/returns/presentation/returns_page.dart';
+import 'package:sfa_app/features/sync/presentation/conflict_resolve_page.dart';
 import 'package:sfa_app/features/sync/presentation/sync_page.dart';
 import 'package:sfa_app/features/tenant/presentation/domains_page.dart';
 import 'package:sfa_app/features/tenant/presentation/providers_page.dart';
@@ -52,6 +53,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         final ok = loc == '/home' ||
             loc.startsWith('/field/') ||
             loc == '/more' ||
+            loc.startsWith('/more/') ||
             loc == '/login';
         if (!ok) return '/home';
       }
@@ -88,7 +90,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ],
       ),
       // nested under /more as /more/sync — agent more page uses /field/sync; fix paths
-      GoRoute(path: '/field/sync', builder: (context, state) => const SyncPage()),
+      GoRoute(
+        path: '/field/sync',
+        builder: (context, state) => const SyncPage(),
+        routes: [
+          GoRoute(
+            path: 'conflicts/:id',
+            builder: (context, state) => ConflictResolvePage(
+              conflictId: state.pathParameters['id'] ?? '',
+            ),
+          ),
+        ],
+      ),
       GoRoute(path: '/field/notifications', builder: (context, state) => const NotificationsPage()),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) => AdminShell(navigationShell: navigationShell),
@@ -142,7 +155,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             GoRoute(path: '/domains', builder: (context, state) => const DomainsPage()),
           ]),
           StatefulShellBranch(routes: [
-            GoRoute(path: '/sync', builder: (context, state) => const SyncPage()),
+            GoRoute(
+              path: '/sync',
+              builder: (context, state) => const SyncPage(),
+              routes: [
+                GoRoute(
+                  path: 'conflicts/:id',
+                  builder: (context, state) => ConflictResolvePage(
+                    conflictId: state.pathParameters['id'] ?? '',
+                  ),
+                ),
+              ],
+            ),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(path: '/notifications', builder: (context, state) => const NotificationsPage()),

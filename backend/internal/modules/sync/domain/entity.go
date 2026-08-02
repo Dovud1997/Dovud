@@ -12,6 +12,9 @@ const (
 	ConflictStatusOpen     = "open"
 	ConflictStatusResolved = "resolved"
 
+	ResolutionServerWins = "server_wins"
+	ResolutionClientWins = "client_wins"
+
 	OpCreate = "create"
 	OpUpdate = "update"
 	OpDelete = "delete"

@@ -13,8 +13,6 @@ final offlineStoreProvider = Provider<OfflineStore>((ref) {
 });
 
 /// Sync orchestration + [EntityCache] facade.
-///
-/// Storage is injected: SQLite tables on mobile/desktop, encrypted blob on web.
 class OfflineStore implements EntityCache {
   OfflineStore(this._sync, this.outbox, {EntityCache? cache})
       : _cache = cache ?? createEntityCache();
@@ -23,7 +21,6 @@ class OfflineStore implements EntityCache {
   final LocalOutbox outbox;
   final EntityCache _cache;
 
-  /// Backend label for Sync center UI.
   String get cacheBackendLabel => entityCacheBackendLabel();
 
   @override
@@ -44,7 +41,7 @@ class OfflineStore implements EntityCache {
   @override
   Future<void> setCursor(String value) => _cache.setCursor(value);
 
-  Future<Map<String, dynamic>> pullAndCache({String deviceId = 'flutter-web'}) async {
+  Future<Map<String, dynamic>> pullAndCache({String? deviceId}) async {
     final cur = await cursor() ?? '';
     final res = await _sync.pull(deviceId: deviceId, cursor: cur);
     final changes = (res['changes'] as List?) ?? const [];
@@ -53,7 +50,9 @@ class OfflineStore implements EntityCache {
       final m = Map<String, dynamic>.from(c as Map);
       final type = m['entity_type']?.toString() ?? 'unknown';
       types.add(type);
-      final payload = Map<String, dynamic>.from(m['payload'] as Map? ?? const {});
+      final payload = Map<String, dynamic>.from(
+        (m['data'] as Map?) ?? (m['payload'] as Map?) ?? const {},
+      );
       if (payload['id'] == null && m['entity_id'] != null) {
         payload['id'] = m['entity_id'];
       }
@@ -75,7 +74,18 @@ class OfflineStore implements EntityCache {
     };
   }
 
-  Future<Map<String, dynamic>> flushOutbox({String deviceId = 'flutter-web'}) {
+  Future<Map<String, dynamic>> flushOutbox({String? deviceId}) {
     return outbox.flush(deviceId: deviceId);
+  }
+
+  /// Push pending outbox then pull & cache (background sync cycle).
+  Future<Map<String, dynamic>> syncCycle({String? deviceId}) async {
+    final flush = await flushOutbox(deviceId: deviceId);
+    final pull = await pullAndCache(deviceId: deviceId);
+    return {
+      'flush': flush,
+      'pull': pull,
+      'backend': cacheBackendLabel,
+    };
   }
 }

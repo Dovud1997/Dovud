@@ -43,7 +43,7 @@ class DriftOutboxStore implements OutboxStore {
             op: op.op,
             baseVersion: Value(op.baseVersion),
             payloadJson: jsonEncode(op.payload),
-            status: const Value('pending'),
+            status: Value(op.status),
             createdAt: op.createdAt,
           ),
           mode: InsertMode.insertOrReplace,
@@ -53,26 +53,26 @@ class DriftOutboxStore implements OutboxStore {
     await blobs.remove(_blobKey);
   }
 
+  OutboxOp _toOp(OutboxOpRow r) => OutboxOp(
+        opId: r.opId,
+        entityType: r.entityType,
+        entityId: r.entityId,
+        op: r.op,
+        baseVersion: r.baseVersion,
+        payload: Map<String, dynamic>.from(jsonDecode(r.payloadJson) as Map),
+        status: r.status,
+        createdAt: r.createdAt.toUtc(),
+      );
+
   @override
-  Future<List<OutboxOp>> list() async {
+  Future<List<OutboxOp>> list({String? status}) async {
     await _ensureReady();
+    final filter = (status == null || status.isEmpty) ? 'pending' : status;
     final rows = await (_db.select(_db.outboxOps)
-          ..where((t) => t.status.equals('pending'))
+          ..where((t) => t.status.equals(filter))
           ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
         .get();
-    return rows
-        .map(
-          (r) => OutboxOp(
-            opId: r.opId,
-            entityType: r.entityType,
-            entityId: r.entityId,
-            op: r.op,
-            baseVersion: r.baseVersion,
-            payload: Map<String, dynamic>.from(jsonDecode(r.payloadJson) as Map),
-            createdAt: r.createdAt.toUtc(),
-          ),
-        )
-        .toList();
+    return rows.map(_toOp).toList();
   }
 
   @override
@@ -104,5 +104,14 @@ class DriftOutboxStore implements OutboxStore {
     if (set.isEmpty) return;
     await _ensureReady();
     await (_db.delete(_db.outboxOps)..where((t) => t.opId.isIn(set))).go();
+  }
+
+  @override
+  Future<void> markStatus(String opId, String status) async {
+    if (opId.isEmpty) return;
+    await _ensureReady();
+    await (_db.update(_db.outboxOps)..where((t) => t.opId.equals(opId))).write(
+          OutboxOpsCompanion(status: Value(status)),
+        );
   }
 }

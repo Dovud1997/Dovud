@@ -18,6 +18,7 @@ class OutboxOp {
     required this.op,
     this.baseVersion = 0,
     this.payload = const {},
+    this.status = 'pending',
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now().toUtc();
 
@@ -27,6 +28,7 @@ class OutboxOp {
   final String op;
   final int baseVersion;
   final Map<String, dynamic> payload;
+  String status;
   final DateTime createdAt;
 
   Map<String, dynamic> toJson() => {
@@ -36,6 +38,7 @@ class OutboxOp {
         'op': op,
         'base_version': baseVersion,
         'payload': payload,
+        'status': status,
         'created_at': createdAt.toIso8601String(),
       };
 
@@ -47,6 +50,7 @@ class OutboxOp {
       op: json['op']?.toString() ?? 'update',
       baseVersion: (json['base_version'] as num?)?.toInt() ?? 0,
       payload: Map<String, dynamic>.from(json['payload'] as Map? ?? const {}),
+      status: json['status']?.toString() ?? 'pending',
       createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now().toUtc(),
     );
   }
@@ -70,7 +74,7 @@ class LocalOutbox {
 
   String get backendLabel => outboxBackendLabel();
 
-  Future<List<OutboxOp>> list() => _store.list();
+  Future<List<OutboxOp>> list({String? status}) => _store.list(status: status);
 
   Future<void> enqueue(OutboxOp op) => _store.enqueue(op);
 
@@ -78,8 +82,10 @@ class LocalOutbox {
 
   Future<void> removeByOpIds(Iterable<String> ids) => _store.removeByOpIds(ids);
 
-  Future<Map<String, dynamic>> flush({String deviceId = 'flutter-web'}) async {
-    final pending = await list();
+  Future<void> markStatus(String opId, String status) => _store.markStatus(opId, status);
+
+  Future<Map<String, dynamic>> flush({String? deviceId}) async {
+    final pending = await list(status: 'pending');
     if (pending.isEmpty) {
       return {'pushed': 0, 'acked': 0, 'conflicts': 0, 'rejected': 0, 'backend': backendLabel};
     }
@@ -99,8 +105,10 @@ class LocalOutbox {
         acked.add(opId);
       } else if (status == 'conflict') {
         conflicts++;
+        if (opId.isNotEmpty) await markStatus(opId, 'conflict');
       } else {
         rejected++;
+        if (opId.isNotEmpty) await markStatus(opId, 'rejected');
       }
     }
     if (acked.isNotEmpty) {
@@ -111,7 +119,7 @@ class LocalOutbox {
       'acked': acked.length,
       'conflicts': conflicts,
       'rejected': rejected,
-      'remaining': (await list()).length,
+      'remaining': (await list(status: 'pending')).length,
       'backend': backendLabel,
     };
   }

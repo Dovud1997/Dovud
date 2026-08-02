@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:sfa_app/core/offline/local_outbox.dart';
 import 'package:sfa_app/core/offline/offline_store.dart';
+import 'package:sfa_app/core/offline/sync_worker.dart';
 import 'package:sfa_app/features/sync/data/sync_repository.dart';
 
 final syncStatusProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) {
@@ -9,7 +11,11 @@ final syncStatusProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref
 });
 
 final outboxCountProvider = FutureProvider.autoDispose<int>((ref) async {
-  return (await ref.watch(localOutboxProvider).list()).length;
+  return (await ref.watch(localOutboxProvider).list(status: 'pending')).length;
+});
+
+final conflictsProvider = FutureProvider.autoDispose<List<SyncConflict>>((ref) {
+  return ref.watch(syncRepositoryProvider).listConflicts();
 });
 
 final cachedProductsProvider = FutureProvider.autoDispose<int>((ref) async {
@@ -38,6 +44,7 @@ class _SyncPageState extends ConsumerState<SyncPage> {
       await action();
       ref.invalidate(syncStatusProvider);
       ref.invalidate(outboxCountProvider);
+      ref.invalidate(conflictsProvider);
       ref.invalidate(cachedProductsProvider);
       ref.invalidate(cachedCustomersProvider);
     } catch (e) {
@@ -51,10 +58,16 @@ class _SyncPageState extends ConsumerState<SyncPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Ensure background worker is alive while Sync center is open.
+    ref.watch(syncWorkerProvider);
+
     final async = ref.watch(syncStatusProvider);
     final outboxCount = ref.watch(outboxCountProvider).valueOrNull ?? 0;
     final productsCached = ref.watch(cachedProductsProvider).valueOrNull ?? 0;
     final customersCached = ref.watch(cachedCustomersProvider).valueOrNull ?? 0;
+    final conflicts = ref.watch(conflictsProvider).valueOrNull ?? const [];
+    final worker = ref.watch(syncWorkerProvider);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Sync center')),
       body: Column(
@@ -83,7 +96,17 @@ class _SyncPageState extends ConsumerState<SyncPage> {
                   ),
                   ListTile(
                     title: const Text('Open conflicts'),
-                    subtitle: Text(s['open_conflicts']?.toString() ?? '0'),
+                    subtitle: Text('${s['open_conflicts'] ?? conflicts.length}'),
+                  ),
+                  ListTile(
+                    title: const Text('Background sync'),
+                    subtitle: Text(
+                      worker.lastError != null
+                          ? 'error: ${worker.lastError}'
+                          : worker.lastSuccessAt == null
+                              ? 'waiting'
+                              : 'ok · ${worker.lastSuccessAt!.toIso8601String()}',
+                    ),
                   ),
                   ListTile(
                     title: const Text('Local outbox'),
@@ -108,6 +131,32 @@ class _SyncPageState extends ConsumerState<SyncPage> {
                     ListTile(
                       title: const Text('Last flush'),
                       subtitle: Text(_lastFlushSummary),
+                    ),
+                  const SizedBox(height: 8),
+                  Text('Conflicts', style: Theme.of(context).textTheme.titleMedium),
+                  if (conflicts.isEmpty)
+                    const ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text('No open conflicts'),
+                    )
+                  else
+                    ...conflicts.map(
+                      (c) => ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text('${c.entityType} · ${c.entityId}'),
+                        subtitle: Text('v${c.baseVersion} vs server v${c.serverVersion}'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () async {
+                          final path = GoRouterState.of(context).uri.path;
+                          final base = path.startsWith('/field/') ? '/field/sync' : '/sync';
+                          final ok = await context.push<bool>('$base/conflicts/${c.id}');
+                          if (ok == true) {
+                            ref.invalidate(conflictsProvider);
+                            ref.invalidate(syncStatusProvider);
+                            ref.invalidate(outboxCountProvider);
+                          }
+                        },
+                      ),
                     ),
                   const SizedBox(height: 16),
                   Wrap(
@@ -166,6 +215,15 @@ class _SyncPageState extends ConsumerState<SyncPage> {
                                 }),
                         icon: const Icon(Icons.upload_outlined),
                         label: const Text('Flush outbox'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _busy
+                            ? null
+                            : () => _run(() async {
+                                  await ref.read(syncWorkerProvider).tick(reason: 'manual');
+                                }),
+                        icon: const Icon(Icons.autorenew),
+                        label: const Text('Run sync cycle'),
                       ),
                     ],
                   ),
