@@ -7,12 +7,15 @@ import 'package:sfa_app/features/agent/presentation/agent_more_page.dart';
 import 'package:sfa_app/features/audit/presentation/audit_page.dart';
 import 'package:sfa_app/features/auth/presentation/auth_controller.dart';
 import 'package:sfa_app/features/auth/presentation/login_page.dart';
+import 'package:sfa_app/features/branding/presentation/branding_page.dart';
 import 'package:sfa_app/features/catalog/presentation/products_page.dart';
 import 'package:sfa_app/features/crm/presentation/customers_page.dart';
 import 'package:sfa_app/features/dashboard/presentation/dashboard_page.dart';
 import 'package:sfa_app/features/documents/presentation/documents_page.dart';
 import 'package:sfa_app/features/fieldforce/presentation/routes_page.dart';
 import 'package:sfa_app/features/finance/presentation/receivables_page.dart';
+import 'package:sfa_app/features/identity/presentation/roles_page.dart';
+import 'package:sfa_app/features/identity/presentation/users_page.dart';
 import 'package:sfa_app/features/notifications/presentation/notifications_page.dart';
 import 'package:sfa_app/features/orders/presentation/orders_page.dart';
 import 'package:sfa_app/features/organization/presentation/branches_page.dart';
@@ -124,6 +127,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ]),
           StatefulShellBranch(routes: [
             GoRoute(path: '/portal-links', builder: (context, state) => const PortalLinksPage()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/users', builder: (context, state) => const UsersPage()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/roles', builder: (context, state) => const RolesPage()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/branding', builder: (context, state) => const BrandingPage()),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(path: '/sync', builder: (context, state) => const SyncPage()),

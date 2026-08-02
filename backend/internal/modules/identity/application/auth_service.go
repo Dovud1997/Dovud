@@ -47,16 +47,18 @@ type LoginInput struct {
 }
 
 type UserDTO struct {
-	ID              uuid.UUID `json:"id"`
-	TenantID        uuid.UUID `json:"tenant_id"`
-	Email           string    `json:"email"`
-	FullName        string    `json:"full_name"`
-	Phone           *string   `json:"phone,omitempty"`
-	Locale          string    `json:"locale"`
-	ThemePreference string    `json:"theme_preference"`
-	Roles           []string  `json:"roles"`
-	Permissions     []string  `json:"permissions"`
-	IsPlatformAdmin bool      `json:"is_platform_admin"`
+	ID              uuid.UUID   `json:"id"`
+	TenantID        uuid.UUID   `json:"tenant_id"`
+	Email           string      `json:"email"`
+	FullName        string      `json:"full_name"`
+	Phone           *string     `json:"phone,omitempty"`
+	Locale          string      `json:"locale"`
+	ThemePreference string      `json:"theme_preference"`
+	Status          string      `json:"status"`
+	Roles           []string    `json:"roles"`
+	RoleIDs         []uuid.UUID `json:"role_ids,omitempty"`
+	Permissions     []string    `json:"permissions"`
+	IsPlatformAdmin bool        `json:"is_platform_admin"`
 }
 
 type AuthResult struct {
@@ -344,8 +346,8 @@ func toUserDTO(u *domain.User, roles, perms []string) UserDTO {
 	}
 	return UserDTO{
 		ID: u.ID, TenantID: u.TenantID, Email: u.Email, FullName: u.FullName, Phone: u.Phone,
-		Locale: u.Locale, ThemePreference: u.ThemePreference, Roles: roles, Permissions: perms,
-		IsPlatformAdmin: u.IsPlatformAdmin,
+		Locale: u.Locale, ThemePreference: u.ThemePreference, Status: u.Status,
+		Roles: roles, RoleIDs: []uuid.UUID{}, Permissions: perms, IsPlatformAdmin: u.IsPlatformAdmin,
 	}
 }
 

@@ -127,3 +127,15 @@ func (r *RoleRepo) PermissionIDsByCodes(ctx context.Context, codes []string) ([]
 	err := r.db.WithContext(ctx).Model(&PermissionModel{}).Where("code IN ?", codes).Pluck("id", &ids).Error
 	return ids, err
 }
+
+func (r *RoleRepo) PermissionCodesByRoleID(ctx context.Context, roleID uuid.UUID) ([]string, error) {
+	var codes []string
+	err := r.db.WithContext(ctx).
+		Table("permissions").
+		Select("permissions.code").
+		Joins("JOIN role_permissions ON role_permissions.permission_id = permissions.id").
+		Where("role_permissions.role_id = ?", roleID).
+		Order("permissions.code ASC").
+		Pluck("code", &codes).Error
+	return codes, err
+}

@@ -16,6 +16,7 @@ type UserRepository interface {
 	List(ctx context.Context, tenantID uuid.UUID, page, perPage int) ([]User, int64, error)
 	ReplaceRoles(ctx context.Context, userID uuid.UUID, roleIDs []uuid.UUID) error
 	GetRoleCodes(ctx context.Context, userID uuid.UUID) ([]string, error)
+	GetRoleIDs(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
 	GetPermissionCodes(ctx context.Context, userID uuid.UUID) ([]string, error)
 }
 
@@ -27,6 +28,7 @@ type RoleRepository interface {
 	Update(ctx context.Context, role *Role) error
 	SoftDelete(ctx context.Context, tenantID, id uuid.UUID) error
 	SetPermissions(ctx context.Context, roleID uuid.UUID, permissionIDs []uuid.UUID) error
+	PermissionCodesByRoleID(ctx context.Context, roleID uuid.UUID) ([]string, error)
 	ListPermissions(ctx context.Context) ([]Permission, error)
 	PermissionIDsByCodes(ctx context.Context, codes []string) ([]uuid.UUID, error)
 }

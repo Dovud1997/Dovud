@@ -78,6 +78,16 @@ class SessionController extends StateNotifier<SessionState> {
     await _auth.logout(state.session?.refreshToken);
     state = SessionState(branding: state.branding, loading: false);
   }
+
+  Future<void> refreshBranding({String? tenantCode}) async {
+    final code = tenantCode ?? 'demo';
+    try {
+      final branding = await _branding.fetchPublic(tenantCode: code);
+      state = state.copyWith(branding: branding);
+    } catch (_) {
+      // keep current branding on failure
+    }
+  }
 }
 
 final sessionControllerProvider =

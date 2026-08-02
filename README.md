@@ -2,7 +2,7 @@
 
 White Label SaaS platform for sales force automation — multi-tenant, offline-capable, enterprise-ready.
 
-**Status:** P9 delivered (Tenant providers · AgentShell · Portal links admin) on top of P0–P8
+**Status:** P10 delivered (Users/Roles admin · Branding studio) on top of P0–P9
 
 ## Architecture
 
@@ -125,9 +125,16 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 - AgentShell bottom nav for `sales_agent` (Home · Customers · Orders · Route · More)
 - Helm chart `0.9.0`
 
-## Next (P10+)
+**P10 — Users / Roles admin · Branding studio**
+- Users API: `role_ids` + `status` on DTOs, `PATCH /users/:id` (name/phone/locale/status)
+- Roles API: `permission_codes` on list/create; all `is_system` roles locked for permission edits
+- Flutter: Users, Roles, Branding studio pages in AdminShell
+- Branding save refreshes session theme via public branding bootstrap
+- Helm chart `0.10.0`
 
-Drift/Isar local DB · real FCM/APNs · users/roles admin UI · branding studio
+## Next (P11+)
+
+Drift/Isar local DB · real FCM/APNs · domains UI · logo upload via presign
 
 ## Locales & themes
 

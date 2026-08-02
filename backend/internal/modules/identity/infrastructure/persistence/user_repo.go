@@ -149,6 +149,14 @@ func (r *UserRepo) GetRoleCodes(ctx context.Context, userID uuid.UUID) ([]string
 	return codes, err
 }
 
+func (r *UserRepo) GetRoleIDs(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
+	var ids []uuid.UUID
+	err := r.db.WithContext(ctx).Model(&UserRoleModel{}).
+		Where("user_id = ?", userID).
+		Pluck("role_id", &ids).Error
+	return ids, err
+}
+
 func (r *UserRepo) GetPermissionCodes(ctx context.Context, userID uuid.UUID) ([]string, error) {
 	var codes []string
 	err := r.db.WithContext(ctx).Table("permissions").

@@ -16,4 +16,14 @@ class BrandingRepository {
     final data = Map<String, dynamic>.from(envelope['data'] as Map);
     return Branding.fromJson(data);
   }
+
+  Future<Map<String, dynamic>> fetchTenant() async {
+    final envelope = await _api.get('/tenant/branding');
+    return Map<String, dynamic>.from(envelope['data'] as Map? ?? const {});
+  }
+
+  Future<Map<String, dynamic>> updateTenant(Map<String, dynamic> body) async {
+    final envelope = await _api.put('/tenant/branding', data: body);
+    return Map<String, dynamic>.from(envelope['data'] as Map? ?? const {});
+  }
 }

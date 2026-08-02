@@ -37,7 +37,13 @@ func (s *RBACService) ListUsers(ctx context.Context, tenantID uuid.UUID, page, p
 	for i := range users {
 		roles, _ := s.users.GetRoleCodes(ctx, users[i].ID)
 		perms, _ := s.users.GetPermissionCodes(ctx, users[i].ID)
-		out = append(out, toUserDTO(&users[i], roles, perms))
+		roleIDs, _ := s.users.GetRoleIDs(ctx, users[i].ID)
+		dto := toUserDTO(&users[i], roles, perms)
+		if roleIDs == nil {
+			roleIDs = []uuid.UUID{}
+		}
+		dto.RoleIDs = roleIDs
+		out = append(out, dto)
 	}
 	return out, total, nil
 }
@@ -73,7 +79,65 @@ func (s *RBACService) CreateUser(ctx context.Context, tenantID uuid.UUID, in Cre
 	}
 	roles, _ := s.users.GetRoleCodes(ctx, user.ID)
 	perms, _ := s.users.GetPermissionCodes(ctx, user.ID)
+	roleIDs, _ := s.users.GetRoleIDs(ctx, user.ID)
 	dto := toUserDTO(user, roles, perms)
+	if roleIDs == nil {
+		roleIDs = []uuid.UUID{}
+	}
+	dto.RoleIDs = roleIDs
+	return &dto, nil
+}
+
+type UpdateUserInput struct {
+	FullName *string `json:"full_name"`
+	Phone    *string `json:"phone"`
+	Locale   *string `json:"locale"`
+	Status   *string `json:"status"`
+}
+
+func (s *RBACService) UpdateUser(ctx context.Context, tenantID, userID uuid.UUID, in UpdateUserInput) (*UserDTO, error) {
+	user, err := s.users.FindByID(ctx, tenantID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if in.FullName != nil {
+		name := strings.TrimSpace(*in.FullName)
+		if name == "" {
+			return nil, apperrors.ErrValidation
+		}
+		user.FullName = name
+	}
+	if in.Phone != nil {
+		phone := strings.TrimSpace(*in.Phone)
+		if phone == "" {
+			user.Phone = nil
+		} else {
+			user.Phone = &phone
+		}
+	}
+	if in.Locale != nil {
+		user.Locale = strings.TrimSpace(*in.Locale)
+	}
+	if in.Status != nil {
+		st := strings.TrimSpace(*in.Status)
+		switch st {
+		case "active", "disabled", "invited":
+			user.Status = st
+		default:
+			return nil, apperrors.ErrValidation
+		}
+	}
+	if err := s.users.Update(ctx, user); err != nil {
+		return nil, err
+	}
+	roles, _ := s.users.GetRoleCodes(ctx, user.ID)
+	perms, _ := s.users.GetPermissionCodes(ctx, user.ID)
+	roleIDs, _ := s.users.GetRoleIDs(ctx, user.ID)
+	dto := toUserDTO(user, roles, perms)
+	if roleIDs == nil {
+		roleIDs = []uuid.UUID{}
+	}
+	dto.RoleIDs = roleIDs
 	return &dto, nil
 }
 
@@ -90,11 +154,12 @@ func (s *RBACService) AssignRoles(ctx context.Context, tenantID, userID uuid.UUI
 }
 
 type RoleDTO struct {
-	ID       uuid.UUID  `json:"id"`
-	TenantID *uuid.UUID `json:"tenant_id,omitempty"`
-	Code     string     `json:"code"`
-	Name     string     `json:"name"`
-	IsSystem bool       `json:"is_system"`
+	ID              uuid.UUID  `json:"id"`
+	TenantID        *uuid.UUID `json:"tenant_id,omitempty"`
+	Code            string     `json:"code"`
+	Name            string     `json:"name"`
+	IsSystem        bool       `json:"is_system"`
+	PermissionCodes []string   `json:"permission_codes"`
 }
 
 func (s *RBACService) ListRoles(ctx context.Context, tenantID uuid.UUID) ([]RoleDTO, error) {
@@ -104,7 +169,17 @@ func (s *RBACService) ListRoles(ctx context.Context, tenantID uuid.UUID) ([]Role
 	}
 	out := make([]RoleDTO, 0, len(roles))
 	for _, r := range roles {
-		out = append(out, RoleDTO{ID: r.ID, TenantID: r.TenantID, Code: r.Code, Name: r.Name, IsSystem: r.IsSystem})
+		codes, err := s.roles.PermissionCodesByRoleID(ctx, r.ID)
+		if err != nil {
+			return nil, err
+		}
+		if codes == nil {
+			codes = []string{}
+		}
+		out = append(out, RoleDTO{
+			ID: r.ID, TenantID: r.TenantID, Code: r.Code, Name: r.Name,
+			IsSystem: r.IsSystem, PermissionCodes: codes,
+		})
 	}
 	return out, nil
 }
@@ -135,7 +210,14 @@ func (s *RBACService) CreateRole(ctx context.Context, tenantID uuid.UUID, in Cre
 			return nil, err
 		}
 	}
-	dto := RoleDTO{ID: role.ID, TenantID: role.TenantID, Code: role.Code, Name: role.Name, IsSystem: role.IsSystem}
+	codes, _ := s.roles.PermissionCodesByRoleID(ctx, role.ID)
+	if codes == nil {
+		codes = []string{}
+	}
+	dto := RoleDTO{
+		ID: role.ID, TenantID: role.TenantID, Code: role.Code, Name: role.Name,
+		IsSystem: role.IsSystem, PermissionCodes: codes,
+	}
 	return &dto, nil
 }
 
@@ -144,7 +226,7 @@ func (s *RBACService) SetRolePermissions(ctx context.Context, tenantID, roleID u
 	if err != nil {
 		return err
 	}
-	if role.IsSystem && role.TenantID == nil {
+	if role.IsSystem {
 		return apperrors.New("ROLE_LOCKED", "System roles are immutable", 403)
 	}
 	ids, err := s.roles.PermissionIDsByCodes(ctx, codes)

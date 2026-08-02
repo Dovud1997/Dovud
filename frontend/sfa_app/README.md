@@ -9,6 +9,7 @@ White-label shell for Android / iOS / Web Admin.
 - Dynamic brand theme (Light / Dark / Brand colors)
 - Locale placeholders: `ru`, `uz`, `en` (ARB files ready)
 - Role-aware dashboard shell
+- Admin: Users / Roles / Branding studio pages
 
 ## Run
 

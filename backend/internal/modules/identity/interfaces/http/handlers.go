@@ -39,6 +39,7 @@ func (h *Handler) RegisterProtected(r fiber.Router) {
 
 	r.Get("/users", httpx.RequirePermissions("users:read"), h.ListUsers)
 	r.Post("/users", httpx.RequirePermissions("users:write"), h.CreateUser)
+	r.Patch("/users/:id", httpx.RequirePermissions("users:write"), h.UpdateUser)
 	r.Put("/users/:id/roles", httpx.RequirePermissions("users:write"), h.AssignRoles)
 }
 
@@ -248,6 +249,26 @@ func (h *Handler) CreateUser(c *fiber.Ctx) error {
 		return httpx.Fail(c, err)
 	}
 	return httpx.Created(c, res)
+}
+
+func (h *Handler) UpdateUser(c *fiber.Ctx) error {
+	claims, err := httpx.ClaimsFromCtx(c)
+	if err != nil {
+		return httpx.Fail(c, err)
+	}
+	userID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return httpx.Fail(c, err)
+	}
+	var in application.UpdateUserInput
+	if err := c.BodyParser(&in); err != nil {
+		return httpx.Fail(c, err)
+	}
+	res, err := h.rbac.UpdateUser(c.Context(), claims.TenantID, userID, in)
+	if err != nil {
+		return httpx.Fail(c, err)
+	}
+	return httpx.OK(c, res)
 }
 
 func (h *Handler) AssignRoles(c *fiber.Ctx) error {

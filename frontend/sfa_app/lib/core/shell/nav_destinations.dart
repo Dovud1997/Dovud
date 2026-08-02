@@ -30,8 +30,11 @@ const adminDestinationCatalog = <AdminDestination>[
   AdminDestination(path: '/audit', label: 'Audit', icon: Icons.policy_outlined, branchIndex: 9, permission: 'audit:read'),
   AdminDestination(path: '/providers', label: 'Providers', icon: Icons.tune_outlined, branchIndex: 10, permission: 'tenant:read'),
   AdminDestination(path: '/portal-links', label: 'Portal links', icon: Icons.link_outlined, branchIndex: 11, permission: 'portal:write'),
-  AdminDestination(path: '/sync', label: 'Sync', icon: Icons.sync_outlined, branchIndex: 12, permission: 'sync:use'),
-  AdminDestination(path: '/notifications', label: 'Alerts', icon: Icons.notifications_outlined, branchIndex: 13, permission: 'notifications:read'),
+  AdminDestination(path: '/users', label: 'Users', icon: Icons.manage_accounts_outlined, branchIndex: 12, permission: 'users:read'),
+  AdminDestination(path: '/roles', label: 'Roles', icon: Icons.security_outlined, branchIndex: 13, permission: 'roles:read'),
+  AdminDestination(path: '/branding', label: 'Branding', icon: Icons.palette_outlined, branchIndex: 14, permission: 'tenant:read'),
+  AdminDestination(path: '/sync', label: 'Sync', icon: Icons.sync_outlined, branchIndex: 15, permission: 'sync:use'),
+  AdminDestination(path: '/notifications', label: 'Alerts', icon: Icons.notifications_outlined, branchIndex: 16, permission: 'notifications:read'),
 ];
 
 List<AdminDestination> adminDestinationsFor(AuthUser? user) {
