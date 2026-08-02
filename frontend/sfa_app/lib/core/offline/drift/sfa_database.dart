@@ -48,6 +48,8 @@ class FileUploads extends Table {
   TextColumn get remoteFileId => text().nullable()();
   TextColumn get error => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
+  /// Raw file bytes so pending uploads survive process restarts.
+  BlobColumn get payload => blob().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {uploadId};
@@ -66,7 +68,7 @@ class SfaDatabase extends _$SfaDatabase {
   factory SfaDatabase.memory(QueryExecutor executor) => SfaDatabase(executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -74,6 +76,9 @@ class SfaDatabase extends _$SfaDatabase {
         onUpgrade: (m, from, to) async {
           if (from < 2) {
             await m.createTable(fileUploads);
+          }
+          if (from < 3) {
+            await m.addColumn(fileUploads, fileUploads.payload);
           }
         },
       );

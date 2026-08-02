@@ -968,6 +968,12 @@ class $FileUploadsTable extends FileUploads
   late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
       'created_at', aliasedName, false,
       type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _payloadMeta =
+      const VerificationMeta('payload');
+  @override
+  late final GeneratedColumn<Uint8List> payload = GeneratedColumn<Uint8List>(
+      'payload', aliasedName, true,
+      type: DriftSqlType.blob, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         uploadId,
@@ -978,7 +984,8 @@ class $FileUploadsTable extends FileUploads
         status,
         remoteFileId,
         error,
-        createdAt
+        createdAt,
+        payload
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1036,6 +1043,10 @@ class $FileUploadsTable extends FileUploads
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('payload')) {
+      context.handle(_payloadMeta,
+          payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta));
+    }
     return context;
   }
 
@@ -1063,6 +1074,8 @@ class $FileUploadsTable extends FileUploads
           .read(DriftSqlType.string, data['${effectivePrefix}error']),
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      payload: attachedDatabase.typeMapping
+          .read(DriftSqlType.blob, data['${effectivePrefix}payload']),
     );
   }
 
@@ -1082,6 +1095,9 @@ class FileUploadRow extends DataClass implements Insertable<FileUploadRow> {
   final String? remoteFileId;
   final String? error;
   final DateTime createdAt;
+
+  /// Raw file bytes so pending uploads survive process restarts.
+  final Uint8List? payload;
   const FileUploadRow(
       {required this.uploadId,
       required this.fileName,
@@ -1091,7 +1107,8 @@ class FileUploadRow extends DataClass implements Insertable<FileUploadRow> {
       required this.status,
       this.remoteFileId,
       this.error,
-      required this.createdAt});
+      required this.createdAt,
+      this.payload});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -1110,6 +1127,9 @@ class FileUploadRow extends DataClass implements Insertable<FileUploadRow> {
       map['error'] = Variable<String>(error);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || payload != null) {
+      map['payload'] = Variable<Uint8List>(payload);
+    }
     return map;
   }
 
@@ -1129,6 +1149,9 @@ class FileUploadRow extends DataClass implements Insertable<FileUploadRow> {
       error:
           error == null && nullToAbsent ? const Value.absent() : Value(error),
       createdAt: Value(createdAt),
+      payload: payload == null && nullToAbsent
+          ? const Value.absent()
+          : Value(payload),
     );
   }
 
@@ -1145,6 +1168,7 @@ class FileUploadRow extends DataClass implements Insertable<FileUploadRow> {
       remoteFileId: serializer.fromJson<String?>(json['remoteFileId']),
       error: serializer.fromJson<String?>(json['error']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      payload: serializer.fromJson<Uint8List?>(json['payload']),
     );
   }
   @override
@@ -1160,6 +1184,7 @@ class FileUploadRow extends DataClass implements Insertable<FileUploadRow> {
       'remoteFileId': serializer.toJson<String?>(remoteFileId),
       'error': serializer.toJson<String?>(error),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'payload': serializer.toJson<Uint8List?>(payload),
     };
   }
 
@@ -1172,7 +1197,8 @@ class FileUploadRow extends DataClass implements Insertable<FileUploadRow> {
           String? status,
           Value<String?> remoteFileId = const Value.absent(),
           Value<String?> error = const Value.absent(),
-          DateTime? createdAt}) =>
+          DateTime? createdAt,
+          Value<Uint8List?> payload = const Value.absent()}) =>
       FileUploadRow(
         uploadId: uploadId ?? this.uploadId,
         fileName: fileName ?? this.fileName,
@@ -1184,6 +1210,7 @@ class FileUploadRow extends DataClass implements Insertable<FileUploadRow> {
             remoteFileId.present ? remoteFileId.value : this.remoteFileId,
         error: error.present ? error.value : this.error,
         createdAt: createdAt ?? this.createdAt,
+        payload: payload.present ? payload.value : this.payload,
       );
   FileUploadRow copyWithCompanion(FileUploadsCompanion data) {
     return FileUploadRow(
@@ -1198,6 +1225,7 @@ class FileUploadRow extends DataClass implements Insertable<FileUploadRow> {
           : this.remoteFileId,
       error: data.error.present ? data.error.value : this.error,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      payload: data.payload.present ? data.payload.value : this.payload,
     );
   }
 
@@ -1212,14 +1240,24 @@ class FileUploadRow extends DataClass implements Insertable<FileUploadRow> {
           ..write('status: $status, ')
           ..write('remoteFileId: $remoteFileId, ')
           ..write('error: $error, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('payload: $payload')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(uploadId, fileName, mime, sizeBytes,
-      localPath, status, remoteFileId, error, createdAt);
+  int get hashCode => Object.hash(
+      uploadId,
+      fileName,
+      mime,
+      sizeBytes,
+      localPath,
+      status,
+      remoteFileId,
+      error,
+      createdAt,
+      $driftBlobEquality.hash(payload));
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1232,7 +1270,8 @@ class FileUploadRow extends DataClass implements Insertable<FileUploadRow> {
           other.status == this.status &&
           other.remoteFileId == this.remoteFileId &&
           other.error == this.error &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          $driftBlobEquality.equals(other.payload, this.payload));
 }
 
 class FileUploadsCompanion extends UpdateCompanion<FileUploadRow> {
@@ -1245,6 +1284,7 @@ class FileUploadsCompanion extends UpdateCompanion<FileUploadRow> {
   final Value<String?> remoteFileId;
   final Value<String?> error;
   final Value<DateTime> createdAt;
+  final Value<Uint8List?> payload;
   final Value<int> rowid;
   const FileUploadsCompanion({
     this.uploadId = const Value.absent(),
@@ -1256,6 +1296,7 @@ class FileUploadsCompanion extends UpdateCompanion<FileUploadRow> {
     this.remoteFileId = const Value.absent(),
     this.error = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.payload = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   FileUploadsCompanion.insert({
@@ -1268,6 +1309,7 @@ class FileUploadsCompanion extends UpdateCompanion<FileUploadRow> {
     this.remoteFileId = const Value.absent(),
     this.error = const Value.absent(),
     required DateTime createdAt,
+    this.payload = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : uploadId = Value(uploadId),
         fileName = Value(fileName),
@@ -1283,6 +1325,7 @@ class FileUploadsCompanion extends UpdateCompanion<FileUploadRow> {
     Expression<String>? remoteFileId,
     Expression<String>? error,
     Expression<DateTime>? createdAt,
+    Expression<Uint8List>? payload,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1295,6 +1338,7 @@ class FileUploadsCompanion extends UpdateCompanion<FileUploadRow> {
       if (remoteFileId != null) 'remote_file_id': remoteFileId,
       if (error != null) 'error': error,
       if (createdAt != null) 'created_at': createdAt,
+      if (payload != null) 'payload': payload,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1309,6 +1353,7 @@ class FileUploadsCompanion extends UpdateCompanion<FileUploadRow> {
       Value<String?>? remoteFileId,
       Value<String?>? error,
       Value<DateTime>? createdAt,
+      Value<Uint8List?>? payload,
       Value<int>? rowid}) {
     return FileUploadsCompanion(
       uploadId: uploadId ?? this.uploadId,
@@ -1320,6 +1365,7 @@ class FileUploadsCompanion extends UpdateCompanion<FileUploadRow> {
       remoteFileId: remoteFileId ?? this.remoteFileId,
       error: error ?? this.error,
       createdAt: createdAt ?? this.createdAt,
+      payload: payload ?? this.payload,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1354,6 +1400,9 @@ class FileUploadsCompanion extends UpdateCompanion<FileUploadRow> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (payload.present) {
+      map['payload'] = Variable<Uint8List>(payload.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1372,6 +1421,7 @@ class FileUploadsCompanion extends UpdateCompanion<FileUploadRow> {
           ..write('remoteFileId: $remoteFileId, ')
           ..write('error: $error, ')
           ..write('createdAt: $createdAt, ')
+          ..write('payload: $payload, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1893,6 +1943,7 @@ typedef $$FileUploadsTableCreateCompanionBuilder = FileUploadsCompanion
   Value<String?> remoteFileId,
   Value<String?> error,
   required DateTime createdAt,
+  Value<Uint8List?> payload,
   Value<int> rowid,
 });
 typedef $$FileUploadsTableUpdateCompanionBuilder = FileUploadsCompanion
@@ -1906,6 +1957,7 @@ typedef $$FileUploadsTableUpdateCompanionBuilder = FileUploadsCompanion
   Value<String?> remoteFileId,
   Value<String?> error,
   Value<DateTime> createdAt,
+  Value<Uint8List?> payload,
   Value<int> rowid,
 });
 
@@ -1944,6 +1996,9 @@ class $$FileUploadsTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<Uint8List> get payload => $composableBuilder(
+      column: $table.payload, builder: (column) => ColumnFilters(column));
 }
 
 class $$FileUploadsTableOrderingComposer
@@ -1982,6 +2037,9 @@ class $$FileUploadsTableOrderingComposer
 
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<Uint8List> get payload => $composableBuilder(
+      column: $table.payload, builder: (column) => ColumnOrderings(column));
 }
 
 class $$FileUploadsTableAnnotationComposer
@@ -2019,6 +2077,9 @@ class $$FileUploadsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<Uint8List> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
 }
 
 class $$FileUploadsTableTableManager extends RootTableManager<
@@ -2056,6 +2117,7 @@ class $$FileUploadsTableTableManager extends RootTableManager<
             Value<String?> remoteFileId = const Value.absent(),
             Value<String?> error = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
+            Value<Uint8List?> payload = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               FileUploadsCompanion(
@@ -2068,6 +2130,7 @@ class $$FileUploadsTableTableManager extends RootTableManager<
             remoteFileId: remoteFileId,
             error: error,
             createdAt: createdAt,
+            payload: payload,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -2080,6 +2143,7 @@ class $$FileUploadsTableTableManager extends RootTableManager<
             Value<String?> remoteFileId = const Value.absent(),
             Value<String?> error = const Value.absent(),
             required DateTime createdAt,
+            Value<Uint8List?> payload = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               FileUploadsCompanion.insert(
@@ -2092,6 +2156,7 @@ class $$FileUploadsTableTableManager extends RootTableManager<
             remoteFileId: remoteFileId,
             error: error,
             createdAt: createdAt,
+            payload: payload,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0

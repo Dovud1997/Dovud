@@ -282,7 +282,12 @@ Without Firebase configured, the app falls back to `stub-push-*` tokens (worker 
 - WS `notification.created` from create → refresh unread count
 - Helm chart `0.28.0`
 
-Roadmap phases P1–P28 delivered. Optional polish: Redis Pub/Sub WS scale-out, OS background sync, SQLCipher, GPS offline, upload bytes on disk, per-line conflict merge.
+**P29 — Persist offline upload bytes**
+- Drift `file_uploads.payload` blob (schema v3) stores pending file bytes
+- `FileUploadQueue` restores bytes after restart; clears blob after successful upload
+- Helm chart `0.29.0`
+
+Roadmap phases P1–P29 delivered. Optional polish: Redis Pub/Sub WS scale-out, OS background sync, SQLCipher, GPS offline, per-line conflict merge.
 
 ## Locales & themes
 
