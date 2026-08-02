@@ -1,14 +1,16 @@
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sfa_app/core/offline/drift/sfa_database.dart';
 import 'package:sfa_app/core/offline/drift/shared_database.dart';
 import 'package:sfa_app/features/fieldforce/data/fieldforce_repository.dart';
 
 final gpsQueueProvider = Provider<GpsQueue>((ref) {
-  return GpsQueue(
-    sharedSfaDatabase(),
-    ref.watch(fieldForceRepositoryProvider),
-  );
+  final ff = ref.watch(fieldForceRepositoryProvider);
+  if (kIsWeb) {
+    return GpsQueue.memory(ff);
+  }
+  return GpsQueue(sharedSfaDatabase(), ff);
 });
 
 class PendingGpsPoint {
@@ -35,12 +37,19 @@ class PendingGpsPoint {
   final String? error;
 }
 
-/// Offline GPS batch queue backed by Drift `gps_pending`.
+/// Offline GPS batch queue backed by Drift `gps_pending` (native) or memory (web).
 class GpsQueue {
-  GpsQueue(this._db, this._ff);
+  GpsQueue(this._db, this._ff) : _memory = null;
 
-  final SfaDatabase _db;
+  GpsQueue.memory(this._ff)
+      : _db = null,
+        _memory = <String, PendingGpsPoint>{};
+
+  final SfaDatabase? _db;
   final FieldForceRepository _ff;
+  final Map<String, PendingGpsPoint>? _memory;
+
+  bool get _isMemory => _db == null;
 
   Future<PendingGpsPoint> enqueue({
     required String agentId,
@@ -52,7 +61,21 @@ class GpsQueue {
   }) async {
     final id = 'gps-${DateTime.now().microsecondsSinceEpoch}';
     final at = (recordedAt ?? DateTime.now().toUtc()).toUtc();
-    await _db.into(_db.gpsPending).insert(
+    final point = PendingGpsPoint(
+      pointId: id,
+      agentId: agentId,
+      visitId: visitId,
+      lat: lat,
+      lng: lng,
+      accuracy: accuracy,
+      recordedAt: at,
+      status: 'pending',
+    );
+    if (_isMemory) {
+      _memory![id] = point;
+      return point;
+    }
+    await _db!.into(_db.gpsPending).insert(
           GpsPendingCompanion.insert(
             pointId: id,
             agentId: agentId,
@@ -65,20 +88,15 @@ class GpsQueue {
             createdAt: DateTime.now().toUtc(),
           ),
         );
-    return PendingGpsPoint(
-      pointId: id,
-      agentId: agentId,
-      visitId: visitId,
-      lat: lat,
-      lng: lng,
-      accuracy: accuracy,
-      recordedAt: at,
-      status: 'pending',
-    );
+    return point;
   }
 
   Future<List<PendingGpsPoint>> list({String status = 'pending'}) async {
-    final rows = await (_db.select(_db.gpsPending)
+    if (_isMemory) {
+      return _memory!.values.where((e) => e.status == status).toList()
+        ..sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
+    }
+    final rows = await (_db!.select(_db.gpsPending)
           ..where((t) => t.status.equals(status))
           ..orderBy([(t) => OrderingTerm.asc(t.recordedAt)]))
         .get();
@@ -121,8 +139,21 @@ class GpsQueue {
     try {
       await _ff.uploadGpsPoints(payload);
       for (final p in pending) {
-        await (_db.update(_db.gpsPending)..where((t) => t.pointId.equals(p.pointId)))
-            .write(const GpsPendingCompanion(status: Value('uploaded')));
+        if (_isMemory) {
+          _memory![p.pointId] = PendingGpsPoint(
+            pointId: p.pointId,
+            agentId: p.agentId,
+            visitId: p.visitId,
+            lat: p.lat,
+            lng: p.lng,
+            accuracy: p.accuracy,
+            recordedAt: p.recordedAt,
+            status: 'uploaded',
+          );
+        } else {
+          await (_db!.update(_db.gpsPending)..where((t) => t.pointId.equals(p.pointId)))
+              .write(const GpsPendingCompanion(status: Value('uploaded')));
+        }
       }
       return {'pending': pending.length, 'uploaded': pending.length, 'failed': 0};
     } catch (e) {

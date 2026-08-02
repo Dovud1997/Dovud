@@ -311,7 +311,13 @@ Without Firebase configured, the app falls back to `stub-push-*` tokens (worker 
 - Sync center: foreground vs OS background status
 - Helm chart `0.33.0`
 
-Roadmap phases P1–P33 delivered. Optional polish: SQLCipher, device GPS.
+**P34 — SQLCipher offline DB**
+- Native Drift DB opened via SQLCipher (`sfa_offline_v2_enc.sqlite`); 256-bit key in secure storage
+- Verifies `PRAGMA cipher_version`; drops legacy plaintext `sfa_offline_v1.sqlite`
+- Web keeps AES SecureBlob cache/outbox (no SQLCipher); removes `drift_flutter` / plain `sqlite3_flutter_libs`
+- Helm chart `0.34.0`
+
+Roadmap phases P1–P34 delivered. Optional polish: device GPS.
 
 ## Locales & themes
 

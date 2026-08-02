@@ -155,6 +155,8 @@ Triggers: order saved, visit checkout, photo captured, manual "Sync now", OS per
 | `background_sync` (IO) | `workmanager` periodic unique task `sfa.background.sync` (~15m, network required) |
 | `background_sync` (web) | No-op stub |
 | Headless isolate | Refresh JWT → push outbox → pull/cache → flush file uploads + GPS queue |
+| Storage (native) | Drift + **SQLCipher** (`sfa_offline_v2_enc.sqlite`); key in secure storage |
+| Storage (web) | AES `SecureBlobStore` for cache/outbox; in-memory upload/GPS queues |
 
 Indicators: synced / syncing / offline pending(count) / conflict(count); Sync center shows foreground + OS background status.
 

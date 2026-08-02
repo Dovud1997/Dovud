@@ -1,5 +1,5 @@
 import 'package:drift/drift.dart';
-import 'package:drift_flutter/drift_flutter.dart';
+import 'package:sfa_app/core/offline/drift/sfa_connection.dart';
 
 part 'sfa_database.g.dart';
 
@@ -76,9 +76,9 @@ class GpsPending extends Table {
 class SfaDatabase extends _$SfaDatabase {
   SfaDatabase(super.e);
 
-  /// Persistent DB for all platforms (Native on IO, Wasm on web via drift_flutter).
+  /// Persistent encrypted DB on native (SQLCipher). Web uses blob stores instead.
   factory SfaDatabase.open() {
-    return SfaDatabase(driftDatabase(name: 'sfa_offline_v1'));
+    return SfaDatabase(openSfaExecutor());
   }
 
   /// In-memory executor for unit tests (VM only).

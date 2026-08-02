@@ -46,7 +46,8 @@
 
 - Certificate pinning (optional enterprise)
 - Root/jailbreak detection soft-warn (policy)
-- Offline DB unencrypted optional; recommend SQLCipher/Isar encryption for PII tenants
+- Offline Drift DB encrypted at rest with **SQLCipher** (256-bit key in `FlutterSecureStorage`, file `sfa_offline_v2_enc.sqlite`)
+- Web Admin offline cache/outbox uses AES blob (`SecureBlobStore`), not SQLCipher
 
 ---
 
