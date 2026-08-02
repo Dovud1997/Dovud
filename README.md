@@ -317,7 +317,12 @@ Without Firebase configured, the app falls back to `stub-push-*` tokens (worker 
 - Web keeps AES SecureBlob cache/outbox (no SQLCipher); removes `drift_flutter` / plain `sqlite3_flutter_libs`
 - Helm chart `0.34.0`
 
-Roadmap phases P1–P34 delivered. Optional polish: device GPS.
+**P35 — Device GPS**
+- `geolocator` + `DeviceLocationService` (permission + high-accuracy fix)
+- Agent Routes GPS button and visit check-in use real device coords (no demo Tashkent)
+- Android/iOS location permission strings; Helm chart `0.35.0`
+
+Roadmap phases P1–P35 delivered.
 
 ## Locales & themes
 

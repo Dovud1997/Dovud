@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sfa_app/core/device/device_location.dart';
 import 'package:sfa_app/core/offline/agent_write_coordinator.dart';
 import 'package:sfa_app/core/offline/gps_queue.dart';
 import 'package:sfa_app/core/offline/sync_worker.dart';
@@ -38,6 +39,19 @@ class _RoutesPageState extends ConsumerState<RoutesPage> {
     } catch (_) {}
   }
 
+  Future<DevicePosition?> _readPosition() async {
+    try {
+      return await ref.read(deviceLocationProvider).current();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('GPS: $e')),
+        );
+      }
+      return null;
+    }
+  }
+
   Future<void> _checkIn() async {
     setState(() => _busy = true);
     try {
@@ -55,6 +69,8 @@ class _RoutesPageState extends ConsumerState<RoutesPage> {
       final customerId = customers.first['id']?.toString() ?? '';
       if (agentId.isEmpty || customerId.isEmpty) return;
 
+      final pos = await _readPosition();
+
       await ref.read(agentWriteCoordinatorProvider).write(
             entityType: 'visit',
             op: 'create',
@@ -62,15 +78,38 @@ class _RoutesPageState extends ConsumerState<RoutesPage> {
               'agent_id': agentId,
               'customer_id': customerId,
               'result': '',
+              if (pos != null) ...pos.toJson(),
             },
             online: () => ref.read(fieldForceRepositoryProvider).checkIn(
                   agentId: agentId,
                   customerId: customerId,
+                  lat: pos?.lat,
+                  lng: pos?.lng,
                 ),
           );
+
+      if (pos != null) {
+        await ref.read(gpsQueueProvider).enqueue(
+              agentId: agentId,
+              lat: pos.lat,
+              lng: pos.lng,
+              accuracy: pos.accuracy,
+            );
+        await ref.read(gpsQueueProvider).flush();
+        await _refreshGpsCount();
+      }
+
       ref.invalidate(visitsProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Checked in')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              pos == null
+                  ? 'Checked in (no GPS)'
+                  : 'Checked in · ${pos.lat.toStringAsFixed(5)}, ${pos.lng.toStringAsFixed(5)}',
+            ),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -109,12 +148,15 @@ class _RoutesPageState extends ConsumerState<RoutesPage> {
       }
       final agentId = agents.first['id']?.toString() ?? '';
       if (agentId.isEmpty) return;
-      // Demo coords (Tashkent) — device GPS can replace later.
+
+      final pos = await _readPosition();
+      if (pos == null) return;
+
       await ref.read(gpsQueueProvider).enqueue(
             agentId: agentId,
-            lat: 41.3111,
-            lng: 69.2797,
-            accuracy: 25,
+            lat: pos.lat,
+            lng: pos.lng,
+            accuracy: pos.accuracy,
           );
       await _refreshGpsCount();
       final flush = await ref.read(gpsQueueProvider).flush();
@@ -125,12 +167,14 @@ class _RoutesPageState extends ConsumerState<RoutesPage> {
       }
       if (mounted) {
         final pending = _gpsPending;
+        final coords =
+            '${pos.lat.toStringAsFixed(5)}, ${pos.lng.toStringAsFixed(5)} (±${pos.accuracy?.toStringAsFixed(0) ?? '?'}m)';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               pending > 0
-                  ? 'GPS queued ($pending pending — will sync offline)'
-                  : 'GPS point uploaded',
+                  ? 'GPS queued $coords ($pending pending)'
+                  : 'GPS uploaded $coords',
             ),
           ),
         );
