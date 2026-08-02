@@ -293,7 +293,12 @@ Without Firebase configured, the app falls back to `stub-push-*` tokens (worker 
 - In-memory bus for tests; no-op when Redis unavailable
 - Helm chart `0.30.0`
 
-Roadmap phases P1–P30 delivered. Optional polish: OS background sync, SQLCipher, GPS offline, per-line conflict merge.
+**P31 — Per-line conflict merge**
+- Conflict UI merges `lines` by `product_id` (yours vs server per row)
+- Shared `conflict_line_merge` helper + unit tests
+- Helm chart `0.31.0`
+
+Roadmap phases P1–P31 delivered. Optional polish: OS background sync, SQLCipher, GPS offline.
 
 ## Locales & themes
 

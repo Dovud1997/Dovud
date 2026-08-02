@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sfa_app/core/offline/local_outbox.dart';
 import 'package:sfa_app/core/offline/offline_store.dart';
 import 'package:sfa_app/features/sync/data/sync_repository.dart';
+import 'package:sfa_app/features/sync/presentation/conflict_line_merge.dart';
 
 class ConflictResolvePage extends ConsumerStatefulWidget {
   const ConflictResolvePage({super.key, required this.conflictId});
@@ -19,8 +20,11 @@ class _ConflictResolvePageState extends ConsumerState<ConflictResolvePage> {
   SyncConflict? _conflict;
   String? _error;
   bool _busy = false;
-  /// true = keep client value for that field
+  /// true = keep client value for that field (excluding `lines`)
   final Map<String, bool> _pickClient = {};
+  /// true = keep client line for that line key
+  final Map<String, bool> _pickLineClient = {};
+  bool _linesDiffer = false;
 
   static const _skipKeys = {'id', 'version', 'created_at', 'updated_at'};
 
@@ -45,7 +49,21 @@ class _ConflictResolvePageState extends ConsumerState<ConflictResolvePage> {
         final diffs = _diffKeys(c.serverPayload, c.clientPayload);
         _pickClient
           ..clear()
-          ..addEntries(diffs.map((k) => MapEntry(k, true)));
+          ..addEntries(
+            diffs.where((k) => k != 'lines').map((k) => MapEntry(k, true)),
+          );
+        _linesDiffer = diffs.contains('lines') &&
+            (c.serverPayload['lines'] is List || c.clientPayload['lines'] is List);
+        _pickLineClient
+          ..clear()
+          ..addAll(
+            _linesDiffer
+                ? defaultLinePicks(
+                    serverLines: c.serverPayload['lines'],
+                    clientLines: c.clientPayload['lines'],
+                  )
+                : const {},
+          );
         setState(() => _conflict = c);
       }
     } catch (e) {
@@ -71,6 +89,13 @@ class _ConflictResolvePageState extends ConsumerState<ConflictResolvePage> {
       if (e.value) {
         out[e.key] = c.clientPayload[e.key];
       }
+    }
+    if (_linesDiffer) {
+      out['lines'] = mergeOrderLines(
+        serverLines: c.serverPayload['lines'],
+        clientLines: c.clientPayload['lines'],
+        pickClient: _pickLineClient,
+      );
     }
     return out;
   }
@@ -112,17 +137,39 @@ class _ConflictResolvePageState extends ConsumerState<ConflictResolvePage> {
     }
   }
 
-  String _linesSummary(dynamic v) {
-    if (v is! List) return _pretty(v);
-    if (v.isEmpty) return '0 lines';
-    final parts = v.take(5).map((e) {
-      if (e is Map) {
-        return '${e['product_id'] ?? '?'}×${e['qty'] ?? '?'}';
-      }
-      return '$e';
-    }).toList();
-    final more = v.length > 5 ? ' +${v.length - 5} more' : '';
-    return '${v.length} lines: ${parts.join(', ')}$more';
+  List<Widget> _lineMergeTiles(SyncConflict c) {
+    if (!_linesDiffer) return const [];
+    final server = {for (final l in asLineMaps(c.serverPayload['lines'])) lineKey(l): l};
+    final client = {for (final l in asLineMaps(c.clientPayload['lines'])) lineKey(l): l};
+    final keys = _pickLineClient.keys.toList()..sort();
+    return [
+      const SizedBox(height: 8),
+      Text('Order lines', style: Theme.of(context).textTheme.titleSmall),
+      Text(
+        'Toggle per product: on = yours, off = server',
+        style: Theme.of(context).textTheme.bodySmall,
+      ),
+      ...keys.map((key) {
+        final pickMine = _pickLineClient[key] ?? true;
+        final s = server[key];
+        final cl = client[key];
+        return CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          value: pickMine,
+          onChanged: _busy ? null : (v) => setState(() => _pickLineClient[key] = v ?? true),
+          title: Text(cl != null ? lineLabel(cl) : (s != null ? lineLabel(s) : key)),
+          subtitle: Text(
+            [
+              if (s != null) 'server: ${lineLabel(s)}',
+              if (cl != null) 'yours: ${lineLabel(cl)}',
+              if (s == null) 'server: (none)',
+              if (cl == null) 'yours: (none)',
+            ].join('\n'),
+          ),
+          secondary: Text(pickMine ? 'Yours' : 'Server'),
+        );
+      }),
+    ];
   }
 
   @override
@@ -144,9 +191,9 @@ class _ConflictResolvePageState extends ConsumerState<ConflictResolvePage> {
                         Text('base v${c.baseVersion} → server v${c.serverVersion}'),
                         const SizedBox(height: 16),
                         Text('Field merge', style: Theme.of(context).textTheme.titleSmall),
-                        if (_pickClient.isEmpty)
+                        if (_pickClient.isEmpty && !_linesDiffer)
                           const Text('No field differences — use Take server / Keep mine')
-                        else
+                        else ...[
                           ..._pickClient.keys.map((key) {
                             final pickMine = _pickClient[key] ?? true;
                             return CheckboxListTile(
@@ -157,15 +204,14 @@ class _ConflictResolvePageState extends ConsumerState<ConflictResolvePage> {
                                   : (v) => setState(() => _pickClient[key] = v ?? true),
                               title: Text(key),
                               subtitle: Text(
-                                key == 'lines'
-                                    ? 'server: ${_linesSummary(c.serverPayload[key])}\n'
-                                        'yours: ${_linesSummary(c.clientPayload[key])}'
-                                    : 'server: ${_pretty(c.serverPayload[key])}\n'
-                                        'yours: ${_pretty(c.clientPayload[key])}',
+                                'server: ${_pretty(c.serverPayload[key])}\n'
+                                'yours: ${_pretty(c.clientPayload[key])}',
                               ),
                               secondary: Text(pickMine ? 'Yours' : 'Server'),
                             );
                           }),
+                          ..._lineMergeTiles(c),
+                        ],
                         const SizedBox(height: 12),
                         Wrap(
                           spacing: 8,
