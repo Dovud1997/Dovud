@@ -61,3 +61,46 @@ func TestOrderLifecycle(t *testing.T) {
 		t.Fatalf("confirm: err=%v status=%v", err, confirmed)
 	}
 }
+
+func TestOrderCreateRecordsSyncChange(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(
+		&orderspersist.OrderModel{},
+		&orderspersist.OrderLineModel{},
+		&orderspersist.OrderStatusHistoryModel{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	rec := &recordingFanout{}
+	svc := application.NewService(orderspersist.NewOrderRepo(db)).WithSync(rec)
+	tenantID := uuid.New()
+	ctx := context.Background()
+	order, err := svc.CreateOrder(ctx, tenantID, application.CreateOrderInput{
+		CustomerID: uuid.New(), Currency: "UZS",
+		Lines: []application.OrderLineInput{{ProductID: uuid.New(), Qty: 1, UnitPrice: 10}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rec.calls) != 1 || rec.calls[0].entityType != "order" || rec.calls[0].entityID != order.ID.String() {
+		t.Fatalf("fanout=%+v", rec.calls)
+	}
+}
+
+type recordingFanout struct {
+	calls []struct {
+		entityType string
+		entityID   string
+	}
+}
+
+func (r *recordingFanout) RecordChange(_ context.Context, _ uuid.UUID, entityType, entityID string, _ int64, _ bool, _ any) error {
+	r.calls = append(r.calls, struct {
+		entityType string
+		entityID   string
+	}{entityType, entityID})
+	return nil
+}
