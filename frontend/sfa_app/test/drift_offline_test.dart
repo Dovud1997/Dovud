@@ -118,4 +118,20 @@ void main() {
     expect(row.status, 'uploaded');
     expect(row.payload, isNull);
   });
+
+  test('GpsPending enqueue survives list', () async {
+    await db.into(db.gpsPending).insert(
+          GpsPendingCompanion.insert(
+            pointId: 'gps-1',
+            agentId: 'agent-1',
+            lat: 41.3,
+            lng: 69.2,
+            recordedAt: DateTime.now().toUtc(),
+            createdAt: DateTime.now().toUtc(),
+          ),
+        );
+    final rows = await db.select(db.gpsPending).get();
+    expect(rows.length, 1);
+    expect(rows.first.lat, 41.3);
+  });
 }

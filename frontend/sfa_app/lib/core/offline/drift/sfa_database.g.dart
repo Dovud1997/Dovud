@@ -1428,6 +1428,513 @@ class FileUploadsCompanion extends UpdateCompanion<FileUploadRow> {
   }
 }
 
+class $GpsPendingTable extends GpsPending
+    with TableInfo<$GpsPendingTable, GpsPendingRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $GpsPendingTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _pointIdMeta =
+      const VerificationMeta('pointId');
+  @override
+  late final GeneratedColumn<String> pointId = GeneratedColumn<String>(
+      'point_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _agentIdMeta =
+      const VerificationMeta('agentId');
+  @override
+  late final GeneratedColumn<String> agentId = GeneratedColumn<String>(
+      'agent_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _visitIdMeta =
+      const VerificationMeta('visitId');
+  @override
+  late final GeneratedColumn<String> visitId = GeneratedColumn<String>(
+      'visit_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _latMeta = const VerificationMeta('lat');
+  @override
+  late final GeneratedColumn<double> lat = GeneratedColumn<double>(
+      'lat', aliasedName, false,
+      type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _lngMeta = const VerificationMeta('lng');
+  @override
+  late final GeneratedColumn<double> lng = GeneratedColumn<double>(
+      'lng', aliasedName, false,
+      type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _accuracyMeta =
+      const VerificationMeta('accuracy');
+  @override
+  late final GeneratedColumn<double> accuracy = GeneratedColumn<double>(
+      'accuracy', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _recordedAtMeta =
+      const VerificationMeta('recordedAt');
+  @override
+  late final GeneratedColumn<DateTime> recordedAt = GeneratedColumn<DateTime>(
+      'recorded_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+      'status', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('pending'));
+  static const VerificationMeta _errorMeta = const VerificationMeta('error');
+  @override
+  late final GeneratedColumn<String> error = GeneratedColumn<String>(
+      'error', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [
+        pointId,
+        agentId,
+        visitId,
+        lat,
+        lng,
+        accuracy,
+        recordedAt,
+        status,
+        error,
+        createdAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'gps_pending';
+  @override
+  VerificationContext validateIntegrity(Insertable<GpsPendingRow> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('point_id')) {
+      context.handle(_pointIdMeta,
+          pointId.isAcceptableOrUnknown(data['point_id']!, _pointIdMeta));
+    } else if (isInserting) {
+      context.missing(_pointIdMeta);
+    }
+    if (data.containsKey('agent_id')) {
+      context.handle(_agentIdMeta,
+          agentId.isAcceptableOrUnknown(data['agent_id']!, _agentIdMeta));
+    } else if (isInserting) {
+      context.missing(_agentIdMeta);
+    }
+    if (data.containsKey('visit_id')) {
+      context.handle(_visitIdMeta,
+          visitId.isAcceptableOrUnknown(data['visit_id']!, _visitIdMeta));
+    }
+    if (data.containsKey('lat')) {
+      context.handle(
+          _latMeta, lat.isAcceptableOrUnknown(data['lat']!, _latMeta));
+    } else if (isInserting) {
+      context.missing(_latMeta);
+    }
+    if (data.containsKey('lng')) {
+      context.handle(
+          _lngMeta, lng.isAcceptableOrUnknown(data['lng']!, _lngMeta));
+    } else if (isInserting) {
+      context.missing(_lngMeta);
+    }
+    if (data.containsKey('accuracy')) {
+      context.handle(_accuracyMeta,
+          accuracy.isAcceptableOrUnknown(data['accuracy']!, _accuracyMeta));
+    }
+    if (data.containsKey('recorded_at')) {
+      context.handle(
+          _recordedAtMeta,
+          recordedAt.isAcceptableOrUnknown(
+              data['recorded_at']!, _recordedAtMeta));
+    } else if (isInserting) {
+      context.missing(_recordedAtMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(_statusMeta,
+          status.isAcceptableOrUnknown(data['status']!, _statusMeta));
+    }
+    if (data.containsKey('error')) {
+      context.handle(
+          _errorMeta, error.isAcceptableOrUnknown(data['error']!, _errorMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {pointId};
+  @override
+  GpsPendingRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return GpsPendingRow(
+      pointId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}point_id'])!,
+      agentId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}agent_id'])!,
+      visitId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}visit_id']),
+      lat: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}lat'])!,
+      lng: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}lng'])!,
+      accuracy: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}accuracy']),
+      recordedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}recorded_at'])!,
+      status: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}status'])!,
+      error: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}error']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $GpsPendingTable createAlias(String alias) {
+    return $GpsPendingTable(attachedDatabase, alias);
+  }
+}
+
+class GpsPendingRow extends DataClass implements Insertable<GpsPendingRow> {
+  final String pointId;
+  final String agentId;
+  final String? visitId;
+  final double lat;
+  final double lng;
+  final double? accuracy;
+  final DateTime recordedAt;
+  final String status;
+  final String? error;
+  final DateTime createdAt;
+  const GpsPendingRow(
+      {required this.pointId,
+      required this.agentId,
+      this.visitId,
+      required this.lat,
+      required this.lng,
+      this.accuracy,
+      required this.recordedAt,
+      required this.status,
+      this.error,
+      required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['point_id'] = Variable<String>(pointId);
+    map['agent_id'] = Variable<String>(agentId);
+    if (!nullToAbsent || visitId != null) {
+      map['visit_id'] = Variable<String>(visitId);
+    }
+    map['lat'] = Variable<double>(lat);
+    map['lng'] = Variable<double>(lng);
+    if (!nullToAbsent || accuracy != null) {
+      map['accuracy'] = Variable<double>(accuracy);
+    }
+    map['recorded_at'] = Variable<DateTime>(recordedAt);
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || error != null) {
+      map['error'] = Variable<String>(error);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  GpsPendingCompanion toCompanion(bool nullToAbsent) {
+    return GpsPendingCompanion(
+      pointId: Value(pointId),
+      agentId: Value(agentId),
+      visitId: visitId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(visitId),
+      lat: Value(lat),
+      lng: Value(lng),
+      accuracy: accuracy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(accuracy),
+      recordedAt: Value(recordedAt),
+      status: Value(status),
+      error:
+          error == null && nullToAbsent ? const Value.absent() : Value(error),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory GpsPendingRow.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return GpsPendingRow(
+      pointId: serializer.fromJson<String>(json['pointId']),
+      agentId: serializer.fromJson<String>(json['agentId']),
+      visitId: serializer.fromJson<String?>(json['visitId']),
+      lat: serializer.fromJson<double>(json['lat']),
+      lng: serializer.fromJson<double>(json['lng']),
+      accuracy: serializer.fromJson<double?>(json['accuracy']),
+      recordedAt: serializer.fromJson<DateTime>(json['recordedAt']),
+      status: serializer.fromJson<String>(json['status']),
+      error: serializer.fromJson<String?>(json['error']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'pointId': serializer.toJson<String>(pointId),
+      'agentId': serializer.toJson<String>(agentId),
+      'visitId': serializer.toJson<String?>(visitId),
+      'lat': serializer.toJson<double>(lat),
+      'lng': serializer.toJson<double>(lng),
+      'accuracy': serializer.toJson<double?>(accuracy),
+      'recordedAt': serializer.toJson<DateTime>(recordedAt),
+      'status': serializer.toJson<String>(status),
+      'error': serializer.toJson<String?>(error),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  GpsPendingRow copyWith(
+          {String? pointId,
+          String? agentId,
+          Value<String?> visitId = const Value.absent(),
+          double? lat,
+          double? lng,
+          Value<double?> accuracy = const Value.absent(),
+          DateTime? recordedAt,
+          String? status,
+          Value<String?> error = const Value.absent(),
+          DateTime? createdAt}) =>
+      GpsPendingRow(
+        pointId: pointId ?? this.pointId,
+        agentId: agentId ?? this.agentId,
+        visitId: visitId.present ? visitId.value : this.visitId,
+        lat: lat ?? this.lat,
+        lng: lng ?? this.lng,
+        accuracy: accuracy.present ? accuracy.value : this.accuracy,
+        recordedAt: recordedAt ?? this.recordedAt,
+        status: status ?? this.status,
+        error: error.present ? error.value : this.error,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  GpsPendingRow copyWithCompanion(GpsPendingCompanion data) {
+    return GpsPendingRow(
+      pointId: data.pointId.present ? data.pointId.value : this.pointId,
+      agentId: data.agentId.present ? data.agentId.value : this.agentId,
+      visitId: data.visitId.present ? data.visitId.value : this.visitId,
+      lat: data.lat.present ? data.lat.value : this.lat,
+      lng: data.lng.present ? data.lng.value : this.lng,
+      accuracy: data.accuracy.present ? data.accuracy.value : this.accuracy,
+      recordedAt:
+          data.recordedAt.present ? data.recordedAt.value : this.recordedAt,
+      status: data.status.present ? data.status.value : this.status,
+      error: data.error.present ? data.error.value : this.error,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GpsPendingRow(')
+          ..write('pointId: $pointId, ')
+          ..write('agentId: $agentId, ')
+          ..write('visitId: $visitId, ')
+          ..write('lat: $lat, ')
+          ..write('lng: $lng, ')
+          ..write('accuracy: $accuracy, ')
+          ..write('recordedAt: $recordedAt, ')
+          ..write('status: $status, ')
+          ..write('error: $error, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(pointId, agentId, visitId, lat, lng, accuracy,
+      recordedAt, status, error, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is GpsPendingRow &&
+          other.pointId == this.pointId &&
+          other.agentId == this.agentId &&
+          other.visitId == this.visitId &&
+          other.lat == this.lat &&
+          other.lng == this.lng &&
+          other.accuracy == this.accuracy &&
+          other.recordedAt == this.recordedAt &&
+          other.status == this.status &&
+          other.error == this.error &&
+          other.createdAt == this.createdAt);
+}
+
+class GpsPendingCompanion extends UpdateCompanion<GpsPendingRow> {
+  final Value<String> pointId;
+  final Value<String> agentId;
+  final Value<String?> visitId;
+  final Value<double> lat;
+  final Value<double> lng;
+  final Value<double?> accuracy;
+  final Value<DateTime> recordedAt;
+  final Value<String> status;
+  final Value<String?> error;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const GpsPendingCompanion({
+    this.pointId = const Value.absent(),
+    this.agentId = const Value.absent(),
+    this.visitId = const Value.absent(),
+    this.lat = const Value.absent(),
+    this.lng = const Value.absent(),
+    this.accuracy = const Value.absent(),
+    this.recordedAt = const Value.absent(),
+    this.status = const Value.absent(),
+    this.error = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  GpsPendingCompanion.insert({
+    required String pointId,
+    required String agentId,
+    this.visitId = const Value.absent(),
+    required double lat,
+    required double lng,
+    this.accuracy = const Value.absent(),
+    required DateTime recordedAt,
+    this.status = const Value.absent(),
+    this.error = const Value.absent(),
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  })  : pointId = Value(pointId),
+        agentId = Value(agentId),
+        lat = Value(lat),
+        lng = Value(lng),
+        recordedAt = Value(recordedAt),
+        createdAt = Value(createdAt);
+  static Insertable<GpsPendingRow> custom({
+    Expression<String>? pointId,
+    Expression<String>? agentId,
+    Expression<String>? visitId,
+    Expression<double>? lat,
+    Expression<double>? lng,
+    Expression<double>? accuracy,
+    Expression<DateTime>? recordedAt,
+    Expression<String>? status,
+    Expression<String>? error,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (pointId != null) 'point_id': pointId,
+      if (agentId != null) 'agent_id': agentId,
+      if (visitId != null) 'visit_id': visitId,
+      if (lat != null) 'lat': lat,
+      if (lng != null) 'lng': lng,
+      if (accuracy != null) 'accuracy': accuracy,
+      if (recordedAt != null) 'recorded_at': recordedAt,
+      if (status != null) 'status': status,
+      if (error != null) 'error': error,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  GpsPendingCompanion copyWith(
+      {Value<String>? pointId,
+      Value<String>? agentId,
+      Value<String?>? visitId,
+      Value<double>? lat,
+      Value<double>? lng,
+      Value<double?>? accuracy,
+      Value<DateTime>? recordedAt,
+      Value<String>? status,
+      Value<String?>? error,
+      Value<DateTime>? createdAt,
+      Value<int>? rowid}) {
+    return GpsPendingCompanion(
+      pointId: pointId ?? this.pointId,
+      agentId: agentId ?? this.agentId,
+      visitId: visitId ?? this.visitId,
+      lat: lat ?? this.lat,
+      lng: lng ?? this.lng,
+      accuracy: accuracy ?? this.accuracy,
+      recordedAt: recordedAt ?? this.recordedAt,
+      status: status ?? this.status,
+      error: error ?? this.error,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (pointId.present) {
+      map['point_id'] = Variable<String>(pointId.value);
+    }
+    if (agentId.present) {
+      map['agent_id'] = Variable<String>(agentId.value);
+    }
+    if (visitId.present) {
+      map['visit_id'] = Variable<String>(visitId.value);
+    }
+    if (lat.present) {
+      map['lat'] = Variable<double>(lat.value);
+    }
+    if (lng.present) {
+      map['lng'] = Variable<double>(lng.value);
+    }
+    if (accuracy.present) {
+      map['accuracy'] = Variable<double>(accuracy.value);
+    }
+    if (recordedAt.present) {
+      map['recorded_at'] = Variable<DateTime>(recordedAt.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (error.present) {
+      map['error'] = Variable<String>(error.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GpsPendingCompanion(')
+          ..write('pointId: $pointId, ')
+          ..write('agentId: $agentId, ')
+          ..write('visitId: $visitId, ')
+          ..write('lat: $lat, ')
+          ..write('lng: $lng, ')
+          ..write('accuracy: $accuracy, ')
+          ..write('recordedAt: $recordedAt, ')
+          ..write('status: $status, ')
+          ..write('error: $error, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$SfaDatabase extends GeneratedDatabase {
   _$SfaDatabase(QueryExecutor e) : super(e);
   $SfaDatabaseManager get managers => $SfaDatabaseManager(this);
@@ -1435,12 +1942,13 @@ abstract class _$SfaDatabase extends GeneratedDatabase {
   late final $SyncMetaTable syncMeta = $SyncMetaTable(this);
   late final $OutboxOpsTable outboxOps = $OutboxOpsTable(this);
   late final $FileUploadsTable fileUploads = $FileUploadsTable(this);
+  late final $GpsPendingTable gpsPending = $GpsPendingTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities =>
-      [cachedEntities, syncMeta, outboxOps, fileUploads];
+      [cachedEntities, syncMeta, outboxOps, fileUploads, gpsPending];
 }
 
 typedef $$CachedEntitiesTableCreateCompanionBuilder = CachedEntitiesCompanion
@@ -2181,6 +2689,252 @@ typedef $$FileUploadsTableProcessedTableManager = ProcessedTableManager<
     ),
     FileUploadRow,
     PrefetchHooks Function()>;
+typedef $$GpsPendingTableCreateCompanionBuilder = GpsPendingCompanion Function({
+  required String pointId,
+  required String agentId,
+  Value<String?> visitId,
+  required double lat,
+  required double lng,
+  Value<double?> accuracy,
+  required DateTime recordedAt,
+  Value<String> status,
+  Value<String?> error,
+  required DateTime createdAt,
+  Value<int> rowid,
+});
+typedef $$GpsPendingTableUpdateCompanionBuilder = GpsPendingCompanion Function({
+  Value<String> pointId,
+  Value<String> agentId,
+  Value<String?> visitId,
+  Value<double> lat,
+  Value<double> lng,
+  Value<double?> accuracy,
+  Value<DateTime> recordedAt,
+  Value<String> status,
+  Value<String?> error,
+  Value<DateTime> createdAt,
+  Value<int> rowid,
+});
+
+class $$GpsPendingTableFilterComposer
+    extends Composer<_$SfaDatabase, $GpsPendingTable> {
+  $$GpsPendingTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get pointId => $composableBuilder(
+      column: $table.pointId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get agentId => $composableBuilder(
+      column: $table.agentId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get visitId => $composableBuilder(
+      column: $table.visitId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get lat => $composableBuilder(
+      column: $table.lat, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get lng => $composableBuilder(
+      column: $table.lng, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get accuracy => $composableBuilder(
+      column: $table.accuracy, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get recordedAt => $composableBuilder(
+      column: $table.recordedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get status => $composableBuilder(
+      column: $table.status, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get error => $composableBuilder(
+      column: $table.error, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$GpsPendingTableOrderingComposer
+    extends Composer<_$SfaDatabase, $GpsPendingTable> {
+  $$GpsPendingTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get pointId => $composableBuilder(
+      column: $table.pointId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get agentId => $composableBuilder(
+      column: $table.agentId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get visitId => $composableBuilder(
+      column: $table.visitId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get lat => $composableBuilder(
+      column: $table.lat, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get lng => $composableBuilder(
+      column: $table.lng, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get accuracy => $composableBuilder(
+      column: $table.accuracy, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get recordedAt => $composableBuilder(
+      column: $table.recordedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get status => $composableBuilder(
+      column: $table.status, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get error => $composableBuilder(
+      column: $table.error, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$GpsPendingTableAnnotationComposer
+    extends Composer<_$SfaDatabase, $GpsPendingTable> {
+  $$GpsPendingTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get pointId =>
+      $composableBuilder(column: $table.pointId, builder: (column) => column);
+
+  GeneratedColumn<String> get agentId =>
+      $composableBuilder(column: $table.agentId, builder: (column) => column);
+
+  GeneratedColumn<String> get visitId =>
+      $composableBuilder(column: $table.visitId, builder: (column) => column);
+
+  GeneratedColumn<double> get lat =>
+      $composableBuilder(column: $table.lat, builder: (column) => column);
+
+  GeneratedColumn<double> get lng =>
+      $composableBuilder(column: $table.lng, builder: (column) => column);
+
+  GeneratedColumn<double> get accuracy =>
+      $composableBuilder(column: $table.accuracy, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get recordedAt => $composableBuilder(
+      column: $table.recordedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get error =>
+      $composableBuilder(column: $table.error, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$GpsPendingTableTableManager extends RootTableManager<
+    _$SfaDatabase,
+    $GpsPendingTable,
+    GpsPendingRow,
+    $$GpsPendingTableFilterComposer,
+    $$GpsPendingTableOrderingComposer,
+    $$GpsPendingTableAnnotationComposer,
+    $$GpsPendingTableCreateCompanionBuilder,
+    $$GpsPendingTableUpdateCompanionBuilder,
+    (
+      GpsPendingRow,
+      BaseReferences<_$SfaDatabase, $GpsPendingTable, GpsPendingRow>
+    ),
+    GpsPendingRow,
+    PrefetchHooks Function()> {
+  $$GpsPendingTableTableManager(_$SfaDatabase db, $GpsPendingTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$GpsPendingTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$GpsPendingTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$GpsPendingTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> pointId = const Value.absent(),
+            Value<String> agentId = const Value.absent(),
+            Value<String?> visitId = const Value.absent(),
+            Value<double> lat = const Value.absent(),
+            Value<double> lng = const Value.absent(),
+            Value<double?> accuracy = const Value.absent(),
+            Value<DateTime> recordedAt = const Value.absent(),
+            Value<String> status = const Value.absent(),
+            Value<String?> error = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              GpsPendingCompanion(
+            pointId: pointId,
+            agentId: agentId,
+            visitId: visitId,
+            lat: lat,
+            lng: lng,
+            accuracy: accuracy,
+            recordedAt: recordedAt,
+            status: status,
+            error: error,
+            createdAt: createdAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String pointId,
+            required String agentId,
+            Value<String?> visitId = const Value.absent(),
+            required double lat,
+            required double lng,
+            Value<double?> accuracy = const Value.absent(),
+            required DateTime recordedAt,
+            Value<String> status = const Value.absent(),
+            Value<String?> error = const Value.absent(),
+            required DateTime createdAt,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              GpsPendingCompanion.insert(
+            pointId: pointId,
+            agentId: agentId,
+            visitId: visitId,
+            lat: lat,
+            lng: lng,
+            accuracy: accuracy,
+            recordedAt: recordedAt,
+            status: status,
+            error: error,
+            createdAt: createdAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$GpsPendingTableProcessedTableManager = ProcessedTableManager<
+    _$SfaDatabase,
+    $GpsPendingTable,
+    GpsPendingRow,
+    $$GpsPendingTableFilterComposer,
+    $$GpsPendingTableOrderingComposer,
+    $$GpsPendingTableAnnotationComposer,
+    $$GpsPendingTableCreateCompanionBuilder,
+    $$GpsPendingTableUpdateCompanionBuilder,
+    (
+      GpsPendingRow,
+      BaseReferences<_$SfaDatabase, $GpsPendingTable, GpsPendingRow>
+    ),
+    GpsPendingRow,
+    PrefetchHooks Function()>;
 
 class $SfaDatabaseManager {
   final _$SfaDatabase _db;
@@ -2193,4 +2947,6 @@ class $SfaDatabaseManager {
       $$OutboxOpsTableTableManager(_db, _db.outboxOps);
   $$FileUploadsTableTableManager get fileUploads =>
       $$FileUploadsTableTableManager(_db, _db.fileUploads);
+  $$GpsPendingTableTableManager get gpsPending =>
+      $$GpsPendingTableTableManager(_db, _db.gpsPending);
 }

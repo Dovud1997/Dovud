@@ -87,7 +87,8 @@ class LiveChannel {
         type == 'visit.updated' ||
         type == 'notification.created' ||
         type == 'product.updated' ||
-        type == 'return.updated') {
+        type == 'return.updated' ||
+        type == 'gps.agent.updated') {
       lastInvalidateAt = DateTime.now().toUtc();
       unawaited(_ref.read(syncWorkerProvider).tick(reason: 'ws:$type'));
       if (type == 'notification.created') {

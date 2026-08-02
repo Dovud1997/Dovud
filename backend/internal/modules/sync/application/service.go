@@ -615,6 +615,8 @@ func domainLiveEvent(entityType string) string {
 		return "product.updated"
 	case "return":
 		return "return.updated"
+	case "gps_point":
+		return "gps.agent.updated"
 	case "notification":
 		return "notification.created"
 	default:

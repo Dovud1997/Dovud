@@ -610,8 +610,18 @@ func (s *Service) UploadPoints(ctx context.Context, tenantID uuid.UUID, inputs [
 		return nil, err
 	}
 	out := make([]GpsPointDTO, 0, len(points))
+	latestByAgent := map[uuid.UUID]domain.GpsPoint{}
 	for _, p := range points {
 		out = append(out, toGpsDTO(p))
+		if prev, ok := latestByAgent[p.AgentID]; !ok || p.RecordedAt.After(prev.RecordedAt) {
+			latestByAgent[p.AgentID] = p
+		}
+	}
+	if s.sync != nil && syncport.ShouldFanout(ctx) {
+		for agentID, p := range latestByAgent {
+			dto := toGpsDTO(p)
+			_ = s.sync.RecordChange(ctx, tenantID, "gps_point", agentID.String(), 1, false, dto)
+		}
 	}
 	return out, nil
 }

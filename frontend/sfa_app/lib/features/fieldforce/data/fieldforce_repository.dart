@@ -51,4 +51,15 @@ class FieldForceRepository {
     });
     return Map<String, dynamic>.from(envelope['data'] as Map);
   }
+
+  Future<List<Map<String, dynamic>>> uploadGpsPoints(
+    List<Map<String, dynamic>> points,
+  ) async {
+    final envelope = await _api.post('/gps/points', data: points);
+    final data = envelope['data'];
+    if (data is List) {
+      return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    }
+    return const [];
+  }
 }

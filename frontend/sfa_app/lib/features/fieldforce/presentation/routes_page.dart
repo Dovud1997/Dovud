@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sfa_app/core/offline/agent_write_coordinator.dart';
+import 'package:sfa_app/core/offline/gps_queue.dart';
+import 'package:sfa_app/core/offline/sync_worker.dart';
 import 'package:sfa_app/features/crm/data/crm_repository.dart';
 import 'package:sfa_app/features/fieldforce/data/fieldforce_repository.dart';
 
@@ -21,6 +23,20 @@ class RoutesPage extends ConsumerStatefulWidget {
 
 class _RoutesPageState extends ConsumerState<RoutesPage> {
   bool _busy = false;
+  int _gpsPending = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshGpsCount();
+  }
+
+  Future<void> _refreshGpsCount() async {
+    try {
+      final n = await ref.read(gpsQueueProvider).pendingCount();
+      if (mounted) setState(() => _gpsPending = n);
+    } catch (_) {}
+  }
 
   Future<void> _checkIn() async {
     setState(() => _busy = true);
@@ -79,12 +95,70 @@ class _RoutesPageState extends ConsumerState<RoutesPage> {
     }
   }
 
+  Future<void> _logGps() async {
+    setState(() => _busy = true);
+    try {
+      final agents = await ref.read(fieldForceRepositoryProvider).listAgents();
+      if (agents.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No agent profile')),
+          );
+        }
+        return;
+      }
+      final agentId = agents.first['id']?.toString() ?? '';
+      if (agentId.isEmpty) return;
+      // Demo coords (Tashkent) — device GPS can replace later.
+      await ref.read(gpsQueueProvider).enqueue(
+            agentId: agentId,
+            lat: 41.3111,
+            lng: 69.2797,
+            accuracy: 25,
+          );
+      await _refreshGpsCount();
+      final flush = await ref.read(gpsQueueProvider).flush();
+      await _refreshGpsCount();
+      if (flush['uploaded'] == 0) {
+        await ref.read(syncWorkerProvider).tick(reason: 'gps');
+        await _refreshGpsCount();
+      }
+      if (mounted) {
+        final pending = _gpsPending;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              pending > 0
+                  ? 'GPS queued ($pending pending — will sync offline)'
+                  : 'GPS point uploaded',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final routes = ref.watch(routesProvider);
     final visits = ref.watch(visitsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Routes & visits')),
+      appBar: AppBar(
+        title: const Text('Routes & visits'),
+        actions: [
+          TextButton.icon(
+            onPressed: _busy ? null : _logGps,
+            icon: const Icon(Icons.my_location),
+            label: Text(_gpsPending > 0 ? 'GPS ($_gpsPending)' : 'GPS'),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _busy ? null : _checkIn,
         icon: _busy
