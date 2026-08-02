@@ -1,6 +1,7 @@
 image:
   api: sfa-api:latest
   worker: sfa-worker:latest
+  scheduler: sfa-scheduler:latest
   pullPolicy: IfNotPresent
 
 api:
@@ -9,6 +10,10 @@ api:
   resources: {}
 
 worker:
+  replicas: 1
+  resources: {}
+
+scheduler:
   replicas: 1
   resources: {}
 

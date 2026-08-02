@@ -7,15 +7,17 @@ import (
 
 	"github.com/Dovud1997/Dovud/backend/internal/modules/notifications/domain"
 	apperrors "github.com/Dovud1997/Dovud/backend/internal/platform/errors"
+	"github.com/Dovud1997/Dovud/backend/internal/platform/outbox"
 	"github.com/google/uuid"
 )
 
 type Service struct {
-	repo domain.NotificationRepository
+	repo   domain.NotificationRepository
+	outbox *outbox.Store
 }
 
-func NewService(repo domain.NotificationRepository) *Service {
-	return &Service{repo: repo}
+func NewService(repo domain.NotificationRepository, outboxStore *outbox.Store) *Service {
+	return &Service{repo: repo, outbox: outboxStore}
 }
 
 type NotificationDTO struct {
@@ -84,11 +86,26 @@ func (s *Service) Create(ctx context.Context, tenantID uuid.UUID, in CreateInput
 		TenantID: tenantID, UserID: in.UserID, Type: typ,
 		Title: title, Body: body, PayloadJSON: in.PayloadJSON, Channel: channel,
 	}
+	deliveryStatus := domain.DeliverySent
+	if channel != domain.ChannelInApp {
+		deliveryStatus = domain.DeliveryPending
+	}
 	delivery := &domain.NotificationDelivery{
-		Channel: channel, Status: domain.DeliverySent,
+		Channel: channel, Status: deliveryStatus,
 	}
 	if err := s.repo.Create(ctx, n, delivery); err != nil {
 		return nil, err
+	}
+	if s.outbox != nil && channel != domain.ChannelInApp {
+		eventType := "notification." + channel
+		_ = s.outbox.Append(ctx, tenantID, "notification", &n.ID, eventType, map[string]any{
+			"notification_id": n.ID.String(),
+			"user_id":         n.UserID.String(),
+			"type":            n.Type,
+			"title":           n.Title,
+			"body":            n.Body,
+			"channel":         channel,
+		})
 	}
 	dto := toDTO(*n)
 	return &dto, nil

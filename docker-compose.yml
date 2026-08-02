@@ -79,6 +79,20 @@ services:
       rabbitmq:
         condition: service_started
 
+  scheduler:
+    build:
+      context: ./backend
+      dockerfile: ../deploy/docker/Dockerfile.scheduler
+    environment:
+      SFA_CONFIG: /app/configs/config.yaml
+      SFA_DATABASE_DSN: "host=postgres user=sfa password=sfa dbname=sfa port=5432 sslmode=disable TimeZone=UTC"
+      SFA_RABBITMQ_URL: amqp://sfa:sfa@rabbitmq:5672/
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+
 volumes:
   sfa_pg:
   sfa_minio:

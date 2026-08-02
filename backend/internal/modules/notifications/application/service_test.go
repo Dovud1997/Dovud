@@ -22,7 +22,7 @@ func TestNotificationCreateMarkReadAndCount(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	svc := application.NewService(notifpersist.NewNotificationRepo(db))
+	svc := application.NewService(notifpersist.NewNotificationRepo(db), nil)
 	tenantID := uuid.New()
 	userID := uuid.New()
 	ctx := context.Background()

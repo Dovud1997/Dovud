@@ -60,6 +60,12 @@ func (r *Runner) Run() error {
 	if err := r.mq.Consume(rabbitmqx.QueueMediaProcess, "sfa-worker-media", r.handleMedia); err != nil {
 		return err
 	}
+	if err := r.mq.Consume(rabbitmqx.QueueAuditWrite, "sfa-worker-audit", r.handleAudit); err != nil {
+		return err
+	}
+	if err := r.mq.Consume(rabbitmqx.QueueNotifySMS, "sfa-worker-sms", r.handleNotify); err != nil {
+		return err
+	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
@@ -142,7 +148,26 @@ func (r *Runner) handleMedia(ctx context.Context, env rabbitmqx.Envelope, d amqp
 		r.log.Info("skip duplicate media", "event_id", env.EventID)
 		return nil
 	}
-	r.log.Info("media process handled", "event_type", env.EventType, "tenant_id", env.TenantID, "payload", env.Payload)
+	// Placeholder for thumbnail generation / virus scan hooks.
+	mime, _ := env.Payload["mime"].(string)
+	objectKey, _ := env.Payload["object_key"].(string)
+	r.log.Info("media process handled",
+		"event_type", env.EventType,
+		"tenant_id", env.TenantID,
+		"mime", mime,
+		"object_key", objectKey,
+		"thumbnails", "queued",
+	)
+	return nil
+}
+
+func (r *Runner) handleAudit(ctx context.Context, env rabbitmqx.Envelope, d amqp.Delivery) error {
+	_ = ctx
+	_ = d
+	if !r.once(env.EventID) {
+		return nil
+	}
+	r.log.Info("audit event consumed", "event_type", env.EventType, "tenant_id", env.TenantID, "payload", env.Payload)
 	return nil
 }
 

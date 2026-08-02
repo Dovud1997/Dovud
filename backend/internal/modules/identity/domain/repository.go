@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -35,6 +36,7 @@ type RefreshTokenRepository interface {
 	FindByHash(ctx context.Context, hash string) (*RefreshToken, error)
 	Revoke(ctx context.Context, id uuid.UUID) error
 	RevokeAllForUser(ctx context.Context, userID uuid.UUID) error
+	DeleteExpired(ctx context.Context, before time.Time) (int64, error)
 }
 
 type DeviceRepository interface {

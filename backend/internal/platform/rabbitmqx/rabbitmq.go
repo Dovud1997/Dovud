@@ -18,6 +18,7 @@ const (
 	QueueNotifyPush   = "q.notify.push"
 	QueueNotifySMS    = "q.notify.sms"
 	QueueMediaProcess = "q.media.process"
+	QueueAuditWrite   = "q.audit.write"
 	QueueOutboxRelay  = "q.outbox.relay"
 	QueueDLQ          = "q.dlq"
 )
@@ -81,6 +82,7 @@ func (c *Client) DeclareTopology() error {
 		{QueueNotifyPush, "notification.push"},
 		{QueueNotifySMS, "notification.sms"},
 		{QueueMediaProcess, "media.#"},
+		{QueueAuditWrite, "audit.#"},
 		{QueueOutboxRelay, "outbox.publish"},
 	}
 

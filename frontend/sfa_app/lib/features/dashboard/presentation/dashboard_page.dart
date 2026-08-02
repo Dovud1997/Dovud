@@ -132,9 +132,15 @@ class DashboardPage extends ConsumerWidget {
             onTap: () => context.push('/documents'),
           ),
           _ModuleTile(
+            icon: Icons.policy_outlined,
+            title: 'Audit logs',
+            subtitle: 'Security & change trail',
+            onTap: () => context.push('/audit'),
+          ),
+          _ModuleTile(
             icon: Icons.sync_outlined,
             title: 'Sync center',
-            subtitle: 'Offline pull / push status',
+            subtitle: 'Offline outbox · pull / push',
             onTap: () => context.push('/sync'),
           ),
         ],

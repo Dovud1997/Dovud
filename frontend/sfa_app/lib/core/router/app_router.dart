@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sfa_app/features/audit/presentation/audit_page.dart';
 import 'package:sfa_app/features/auth/presentation/auth_controller.dart';
 import 'package:sfa_app/features/auth/presentation/login_page.dart';
 import 'package:sfa_app/features/catalog/presentation/products_page.dart';
@@ -39,6 +40,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/receivables', builder: (context, state) => const ReceivablesPage()),
       GoRoute(path: '/notifications', builder: (context, state) => const NotificationsPage()),
       GoRoute(path: '/documents', builder: (context, state) => const DocumentsPage()),
+      GoRoute(path: '/audit', builder: (context, state) => const AuditPage()),
       GoRoute(path: '/sync', builder: (context, state) => const SyncPage()),
     ],
     errorBuilder: (context, state) => Scaffold(

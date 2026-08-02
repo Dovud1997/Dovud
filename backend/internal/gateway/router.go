@@ -2,6 +2,7 @@ package gateway
 
 import (
 	analytichttp "github.com/Dovud1997/Dovud/backend/internal/modules/analytics/interfaces/http"
+	audithttp "github.com/Dovud1997/Dovud/backend/internal/modules/audit/interfaces/http"
 	cataloghttp "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/interfaces/http"
 	crmhttp "github.com/Dovud1997/Dovud/backend/internal/modules/crm/interfaces/http"
 	docshttp "github.com/Dovud1997/Dovud/backend/internal/modules/documents/interfaces/http"
@@ -23,6 +24,7 @@ import (
 
 type Deps struct {
 	TokenService  *auth.TokenService
+	AuditWriter   httpx.AuditWriter
 	Identity      *identityhttp.Handler
 	Tenant        *tenanthttp.Handler
 	Organization  *orghttp.Handler
@@ -36,6 +38,7 @@ type Deps struct {
 	Notifications *notifyhttp.Handler
 	Analytics     *analytichttp.Handler
 	Documents     *docshttp.Handler
+	Audit         *audithttp.Handler
 }
 
 func NewRouter(deps Deps) *fiber.App {
@@ -59,6 +62,9 @@ func NewRouter(deps Deps) *fiber.App {
 	}
 
 	protected := v1.Group("", httpx.AuthMiddleware(deps.TokenService))
+	if deps.AuditWriter != nil {
+		protected.Use(httpx.AuditMiddleware(deps.AuditWriter))
+	}
 	deps.Identity.RegisterProtected(protected)
 	deps.Tenant.RegisterProtected(protected)
 	deps.Organization.Register(protected)
@@ -73,6 +79,9 @@ func NewRouter(deps Deps) *fiber.App {
 	deps.Analytics.Register(protected)
 	if deps.Documents != nil {
 		deps.Documents.Register(protected)
+	}
+	if deps.Audit != nil {
+		deps.Audit.Register(protected)
 	}
 
 	return app

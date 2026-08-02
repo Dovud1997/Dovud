@@ -9,6 +9,9 @@ import (
 	analyticsapp "github.com/Dovud1997/Dovud/backend/internal/modules/analytics/application"
 	analyticspersist "github.com/Dovud1997/Dovud/backend/internal/modules/analytics/infrastructure/persistence"
 	analyticshttp "github.com/Dovud1997/Dovud/backend/internal/modules/analytics/interfaces/http"
+	auditapp "github.com/Dovud1997/Dovud/backend/internal/modules/audit/application"
+	auditpersist "github.com/Dovud1997/Dovud/backend/internal/modules/audit/infrastructure/persistence"
+	audithttp "github.com/Dovud1997/Dovud/backend/internal/modules/audit/interfaces/http"
 	catalogapp "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/application"
 	catalogpersist "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/infrastructure/persistence"
 	cataloghttp "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/interfaces/http"
@@ -147,6 +150,7 @@ func New(cfgPath string) (*Application, error) {
 	kpiRepo := analyticspersist.NewKpiRepo(db)
 	fileRepo := docspersist.NewFileRepo(db)
 	documentRepo := docspersist.NewDocumentRepo(db)
+	auditRepo := auditpersist.NewAuditRepo(db)
 
 	authSvc := identityapp.NewAuthService(userRepo, refreshRepo, deviceRepo, tenantRepo, tokenSvc)
 	rbacSvc := identityapp.NewRBACService(userRepo, roleRepo)
@@ -159,12 +163,15 @@ func New(cfgPath string) (*Application, error) {
 	returnsSvc := returnsapp.NewService(returnRepo)
 	financeSvc := financeapp.NewService(receivableRepo, creditLimitRepo)
 	syncSvc := syncapp.NewService(syncDeviceRepo, syncChangeRepo, syncConflictRepo)
-	notifySvc := notifyapp.NewService(notifyRepo)
+	notifySvc := notifyapp.NewService(notifyRepo, outboxStore)
 	analyticsSvc := analyticsapp.NewService(kpiRepo, db)
 	docsSvc := docsapp.NewService(fileRepo, documentRepo, objectStore, outboxStore)
+	auditSvc := auditapp.NewService(auditRepo, outboxStore)
+	auditWriter := audithttp.NewHTTPWriter(auditSvc, log)
 
 	router := gateway.NewRouter(gateway.Deps{
 		TokenService:  tokenSvc,
+		AuditWriter:   auditWriter,
 		Identity:      identityhttp.NewHandler(authSvc, rbacSvc),
 		Tenant:        tenanthttp.NewHandler(tenantSvc),
 		Organization:  orghttp.NewHandler(orgSvc),
@@ -178,6 +185,7 @@ func New(cfgPath string) (*Application, error) {
 		Notifications: notifyhttp.NewHandler(notifySvc),
 		Analytics:     analyticshttp.NewHandler(analyticsSvc),
 		Documents:     docshttp.NewHandler(docsSvc, objectStore),
+		Audit:         audithttp.NewHandler(auditSvc),
 	})
 
 	return &Application{Cfg: cfg, Log: log, DB: db, Redis: redisClient, Store: objectStore, Router: router}, nil
@@ -238,6 +246,7 @@ func autoMigrate(db *gorm.DB) error {
 		&docspersist.DocumentModel{},
 		&docspersist.DocumentFileModel{},
 		&docspersist.EntityFileModel{},
+		&auditpersist.AuditLogModel{},
 	)
 }
 

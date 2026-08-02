@@ -53,6 +53,13 @@ func (r *RefreshTokenRepo) RevokeAllForUser(ctx context.Context, userID uuid.UUI
 		Update("revoked_at", now).Error
 }
 
+func (r *RefreshTokenRepo) DeleteExpired(ctx context.Context, before time.Time) (int64, error) {
+	res := r.db.WithContext(ctx).
+		Where("expires_at < ? OR (revoked_at IS NOT NULL AND revoked_at < ?)", before, before).
+		Delete(&RefreshTokenModel{})
+	return res.RowsAffected, res.Error
+}
+
 type DeviceRepo struct{ db *gorm.DB }
 
 func NewDeviceRepo(db *gorm.DB) *DeviceRepo { return &DeviceRepo{db: db} }

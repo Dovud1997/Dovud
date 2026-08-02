@@ -223,6 +223,40 @@ func (s *Service) SalesAnalytics(ctx context.Context, tenantID uuid.UUID, from, 
 	return out, nil
 }
 
+// RecomputeDailySnapshots writes daily KPI snapshots for all active tenants.
+func (s *Service) RecomputeDailySnapshots(ctx context.Context) (int, error) {
+	type tenantRow struct{ ID uuid.UUID }
+	var tenants []tenantRow
+	if err := s.db.WithContext(ctx).Table("tenants").
+		Select("id").Where("status = ? AND deleted_at IS NULL", "active").
+		Find(&tenants).Error; err != nil {
+		if isMissingTable(err) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	today := startOfDayUTC(time.Now())
+	written := 0
+	for _, t := range tenants {
+		summary, err := s.DashboardSummary(ctx, t.ID)
+		if err != nil {
+			continue
+		}
+		snaps := []domain.KpiSnapshot{
+			{TenantID: t.ID, KpiCode: "orders_today", Period: domain.PeriodDaily, PeriodStart: today, ScopeType: domain.ScopeTenant, Value: float64(summary.OrdersToday)},
+			{TenantID: t.ID, KpiCode: "visits_today", Period: domain.PeriodDaily, PeriodStart: today, ScopeType: domain.ScopeTenant, Value: float64(summary.VisitsToday)},
+			{TenantID: t.ID, KpiCode: "open_ar", Period: domain.PeriodDaily, PeriodStart: today, ScopeType: domain.ScopeTenant, Value: summary.OpenReceivables},
+			{TenantID: t.ID, KpiCode: "sales_amount", Period: domain.PeriodDaily, PeriodStart: today, ScopeType: domain.ScopeTenant, Value: summary.OrdersTotalAmountToday},
+		}
+		for i := range snaps {
+			if err := s.kpi.CreateSnapshot(ctx, &snaps[i]); err == nil {
+				written++
+			}
+		}
+	}
+	return written, nil
+}
+
 func (s *Service) VisitsAnalytics(ctx context.Context, tenantID uuid.UUID, from, to time.Time) ([]domain.VisitPoint, error) {
 	if to.Before(from) {
 		return nil, apperrors.ErrValidation

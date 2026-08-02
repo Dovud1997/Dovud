@@ -2,7 +2,7 @@
 
 White Label SaaS platform for sales force automation — multi-tenant, offline-capable, enterprise-ready.
 
-**Status:** P4 delivered (Documents/MinIO · Outbox/RabbitMQ worker · Helm) on top of P0–P3
+**Status:** P5 delivered (Audit · Scheduler · Notify outbox · Flutter local outbox) on top of P0–P4
 
 ## Architecture
 
@@ -83,9 +83,17 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 - Helm chart skeleton: `deploy/helm/sfa`
 - Flutter: Documents list; Sync center bootstrap/pull/push actions
 
-## Next (P5+)
+**P5 — Audit / Scheduler / Offline outbox**
+- Module: `audit` (`GET /audit-logs`, mutating-request middleware)
+- Binary: `cmd/scheduler` — token cleanup, KPI daily snapshots, outbox nudge
+- Notifications: email/push/sms enqueue to transactional outbox (`notification.*`)
+- Worker: `q.audit.write` + SMS consumer; media handler logs thumbnail queue
+- Compose/Helm: `scheduler` service
+- Flutter: local SharedPreferences outbox + flush via `/sync/push`; Audit logs screen
 
-Full offline Flutter client (local DB + outbox) · audit module · scheduler · notify providers (FCM/email/SMS) · media thumbnails
+## Next (P6+)
+
+Encrypted local DB (Isar/Drift) · real FCM/email/SMS providers · image thumbnails · customer portal
 
 ## Locales & themes
 

@@ -8,6 +8,7 @@ import (
 	"github.com/Dovud1997/Dovud/backend/internal/modules/identity/application"
 	identitypersist "github.com/Dovud1997/Dovud/backend/internal/modules/identity/infrastructure/persistence"
 	analyticspersist "github.com/Dovud1997/Dovud/backend/internal/modules/analytics/infrastructure/persistence"
+	auditpersist "github.com/Dovud1997/Dovud/backend/internal/modules/audit/infrastructure/persistence"
 	catalogpersist "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/infrastructure/persistence"
 	crmpersist "github.com/Dovud1997/Dovud/backend/internal/modules/crm/infrastructure/persistence"
 	docspersist "github.com/Dovud1997/Dovud/backend/internal/modules/documents/infrastructure/persistence"
@@ -90,6 +91,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&docspersist.DocumentModel{},
 		&docspersist.DocumentFileModel{},
 		&docspersist.EntityFileModel{},
+		&auditpersist.AuditLogModel{},
 	); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
