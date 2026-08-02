@@ -187,6 +187,7 @@ func (r *Runner) handleNotify(ctx context.Context, env rabbitmqx.Envelope, d amq
 	title, _ := env.Payload["title"].(string)
 	body, _ := env.Payload["body"].(string)
 	to := userIDStr
+	var pushTokens []string
 	if userIDStr != "" {
 		if uid, err := uuid.Parse(userIDStr); err == nil {
 			if tid, err := uuid.Parse(env.TenantID); err == nil {
@@ -197,17 +198,7 @@ func (r *Runner) handleNotify(ctx context.Context, env rabbitmqx.Envelope, d amq
 					}
 				case "push":
 					if devices, err := r.devices.ListByUser(ctx, tid, uid); err == nil {
-						for _, d := range devices {
-							if d.PushToken == nil {
-								continue
-							}
-							tok := strings.TrimSpace(*d.PushToken)
-							if tok == "" || strings.HasPrefix(tok, "stub-push-") {
-								continue
-							}
-							to = tok
-							break
-						}
+						pushTokens = CollectPushTokens(devices)
 					}
 				}
 			}
@@ -221,9 +212,24 @@ func (r *Runner) handleNotify(ctx context.Context, env rabbitmqx.Envelope, d amq
 			sender = notify.NewRouter(cfg, r.log)
 		}
 	}
-	err := sender.Send(ctx, channel, msg)
+
+	var err error
 	status := notifydomain.DeliverySent
 	var errMsg *string
+	if channel == "push" {
+		if len(pushTokens) == 0 {
+			// No real device tokens (stubs only / none): keep single log-friendly send to user id.
+			err = sender.Send(ctx, channel, msg)
+		} else {
+			sent, failed, ferr := FanoutPush(ctx, sender, pushTokens, msg)
+			err = ferr
+			r.log.Info("push fan-out", "sent", sent, "failed", failed, "devices", len(pushTokens), "event_id", env.EventID)
+			to = strings.Join(pushTokens, ",")
+		}
+	} else {
+		err = sender.Send(ctx, channel, msg)
+	}
+
 	if err != nil {
 		status = notifydomain.DeliveryFailed
 		s := err.Error()

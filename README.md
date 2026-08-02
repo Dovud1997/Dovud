@@ -2,7 +2,7 @@
 
 White Label SaaS platform for sales force automation — multi-tenant, offline-capable, enterprise-ready.
 
-**Status:** P12 delivered (FCM HTTP v1 push driver) on top of P0–P11
+**Status:** P13 delivered (Multi-device push fan-out · EntityCache) on top of P0–P12
 
 ## Architecture
 
@@ -147,9 +147,14 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 - Providers admin UI supports FCM fields
 - Helm chart `0.12.0`
 
-## Next (P13+)
+**P13 — Multi-device push fan-out · EntityCache**
+- Worker fans out push to all usable device tokens (dedupe, skip stubs); partial success OK
+- Flutter `EntityCache` interface; `OfflineStore` implements it (blob backend until Drift)
+- Helm chart `0.13.0`
 
-Drift/Isar local DB · firebase_messaging / APNs client wiring · multi-device push fan-out
+## Next (P14+)
+
+Drift/sqflite entity tables · firebase_messaging / APNs client · per-device delivery rows
 
 ## Locales & themes
 
