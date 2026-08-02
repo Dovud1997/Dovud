@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -55,19 +56,42 @@ ThemeData buildBrandTheme(Branding branding, {required Brightness brightness}) {
     tertiary: branding.accent,
   );
 
-  final display = GoogleFonts.manropeTextTheme();
-  final body = GoogleFonts.plusJakartaSansTextTheme();
+  // Full Material text theme is required — incomplete styles crash TextFormField
+  // on Flutter web ("Null check operator used on a null value").
+  final materialText = ThemeData(
+    useMaterial3: true,
+    brightness: brightness,
+    colorScheme: base,
+  ).textTheme;
+
+  TextTheme textTheme = materialText;
+  if (!kIsWeb) {
+    // Google Fonts runtime fetch is flaky on web releases; keep native apps branded.
+    try {
+      final body = GoogleFonts.plusJakartaSansTextTheme(materialText);
+      final display = GoogleFonts.manropeTextTheme(materialText);
+      textTheme = body.copyWith(
+        displayLarge: display.displayLarge?.copyWith(fontWeight: FontWeight.w700),
+        displayMedium: display.displayMedium?.copyWith(fontWeight: FontWeight.w700),
+        displaySmall: display.displaySmall?.copyWith(fontWeight: FontWeight.w800),
+        headlineLarge: display.headlineLarge?.copyWith(fontWeight: FontWeight.w700),
+        headlineMedium: display.headlineMedium?.copyWith(fontWeight: FontWeight.w600),
+        titleLarge: display.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+      );
+    } catch (_) {
+      textTheme = materialText;
+    }
+  } else {
+    textTheme = materialText.copyWith(
+      displaySmall: materialText.displaySmall?.copyWith(fontWeight: FontWeight.w800),
+      titleLarge: materialText.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+    );
+  }
 
   return ThemeData(
     useMaterial3: true,
     colorScheme: base,
-    textTheme: body.copyWith(
-      displayLarge: display.displayLarge?.copyWith(fontWeight: FontWeight.w700),
-      displayMedium: display.displayMedium?.copyWith(fontWeight: FontWeight.w700),
-      headlineLarge: display.headlineLarge?.copyWith(fontWeight: FontWeight.w700),
-      headlineMedium: display.headlineMedium?.copyWith(fontWeight: FontWeight.w600),
-      titleLarge: display.titleLarge?.copyWith(fontWeight: FontWeight.w600),
-    ),
+    textTheme: textTheme,
     scaffoldBackgroundColor: brightness == Brightness.dark
         ? const Color(0xFF0B1220)
         : const Color(0xFFF3F7F6),
@@ -79,6 +103,9 @@ ThemeData buildBrandTheme(Branding branding, {required Brightness brightness}) {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
+      fillColor: brightness == Brightness.dark
+          ? const Color(0xFF1A2332)
+          : Colors.white,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
     ),
     filledButtonTheme: FilledButtonThemeData(

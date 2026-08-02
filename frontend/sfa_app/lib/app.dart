@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sfa_app/core/live/live_channel.dart';
 import 'package:sfa_app/core/offline/sync_worker.dart';
@@ -8,6 +9,12 @@ import 'package:sfa_app/features/auth/presentation/auth_controller.dart';
 
 class SfaApp extends ConsumerWidget {
   const SfaApp({super.key});
+
+  static const _localizationsDelegates = [
+    GlobalMaterialLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -25,6 +32,12 @@ class SfaApp extends ConsumerWidget {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: buildBrandTheme(branding, brightness: Brightness.light),
+        localizationsDelegates: _localizationsDelegates,
+        supportedLocales: const [
+          Locale('ru'),
+          Locale('uz'),
+          Locale('en'),
+        ],
         home: const Scaffold(
           body: Center(child: CircularProgressIndicator()),
         ),
@@ -39,6 +52,7 @@ class SfaApp extends ConsumerWidget {
       themeMode: _themeMode(branding, session.session?.user.themePreference),
       routerConfig: router,
       locale: _locale(session.session?.user.locale),
+      localizationsDelegates: _localizationsDelegates,
       supportedLocales: const [
         Locale('ru'),
         Locale('uz'),
