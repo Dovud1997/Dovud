@@ -1,8 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sfa_app/core/offline/drift/drift_entity_cache.dart';
 import 'package:sfa_app/core/offline/drift/drift_outbox_store.dart';
 import 'package:sfa_app/core/offline/drift/sfa_database.dart';
+import 'package:sfa_app/core/offline/file_upload_queue.dart';
 import 'package:sfa_app/core/offline/local_outbox.dart';
 import 'package:drift/drift.dart' show Value;
 
@@ -68,10 +71,51 @@ void main() {
             sizeBytes: const Value(3),
             status: const Value('pending'),
             createdAt: DateTime.now().toUtc(),
+            payload: Value(Uint8List.fromList([1, 2, 3])),
           ),
         );
     final rows = await db.select(db.fileUploads).get();
     expect(rows.length, 1);
     expect(rows.first.fileName, 'a.txt');
+    expect(rows.first.payload, [1, 2, 3]);
+  });
+
+  test('FileUploadQueue survives without in-memory cache', () async {
+    final uploaded = <List<int>>[];
+    final queue = FileUploadQueue(
+      db,
+      uploadBytes: ({required fileName, required mime, required bytes}) async {
+        uploaded.add(List<int>.from(bytes));
+        return {'id': 'file-1', 'file_name': fileName};
+      },
+    );
+    final pending = await queue.enqueue(
+      fileName: 'note.bin',
+      mime: 'application/octet-stream',
+      bytes: [9, 8, 7],
+    );
+    // Simulate process restart: new queue instance, empty memory map.
+    final restored = FileUploadQueue(
+      db,
+      uploadBytes: ({required fileName, required mime, required bytes}) async {
+        uploaded.add(List<int>.from(bytes));
+        return {'id': 'file-1', 'file_name': fileName};
+      },
+    );
+    final listed = await restored.list(status: 'pending');
+    expect(listed.single.uploadId, pending.uploadId);
+    expect(listed.single.bytes, [9, 8, 7]);
+
+    final flush = await restored.flush();
+    expect(flush['uploaded'], 1);
+    expect(flush['failed'], 0);
+    expect(uploaded.length, 1);
+    expect(uploaded.first, [9, 8, 7]);
+
+    final row = await (db.select(db.fileUploads)
+          ..where((t) => t.uploadId.equals(pending.uploadId)))
+        .getSingle();
+    expect(row.status, 'uploaded');
+    expect(row.payload, isNull);
   });
 }

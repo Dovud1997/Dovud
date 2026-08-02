@@ -4,10 +4,17 @@ import 'package:sfa_app/core/offline/drift/sfa_database.dart';
 import 'package:sfa_app/core/offline/drift/shared_database.dart';
 import 'package:sfa_app/features/documents/data/documents_repository.dart';
 
+typedef BytesUploader = Future<Map<String, dynamic>> Function({
+  required String fileName,
+  required String mime,
+  required List<int> bytes,
+});
+
 final fileUploadQueueProvider = Provider<FileUploadQueue>((ref) {
+  final docs = ref.watch(documentsRepositoryProvider);
   return FileUploadQueue(
     sharedSfaDatabase(),
-    ref.watch(documentsRepositoryProvider),
+    uploadBytes: docs.uploadBytes,
   );
 });
 
@@ -38,13 +45,17 @@ class PendingUpload {
 }
 
 /// Offline-capable file upload queue backed by Drift `file_uploads`.
+///
+/// Payload bytes are stored in the `payload` blob column so pending uploads
+/// survive process restarts (not only an in-memory map).
 class FileUploadQueue {
-  FileUploadQueue(this._db, this._docs);
+  FileUploadQueue(this._db, {required BytesUploader uploadBytes})
+      : _uploadBytes = uploadBytes;
 
   final SfaDatabase _db;
-  final DocumentsRepository _docs;
+  final BytesUploader _uploadBytes;
 
-  // In-memory byte payloads for pending uploads (web-friendly; path optional).
+  /// Hot cache; source of truth is Drift `payload`.
   final Map<String, List<int>> _bytes = {};
 
   Future<PendingUpload> enqueue({
@@ -54,7 +65,8 @@ class FileUploadQueue {
     String? localPath,
   }) async {
     final id = 'up-${DateTime.now().microsecondsSinceEpoch}';
-    _bytes[id] = bytes;
+    final payload = Uint8List.fromList(bytes);
+    _bytes[id] = payload;
     await _db.into(_db.fileUploads).insert(
           FileUploadsCompanion.insert(
             uploadId: id,
@@ -64,6 +76,7 @@ class FileUploadQueue {
             localPath: Value(localPath),
             status: const Value('pending'),
             createdAt: DateTime.now().toUtc(),
+            payload: Value(payload),
           ),
         );
     return PendingUpload(
@@ -74,7 +87,7 @@ class FileUploadQueue {
       status: 'pending',
       localPath: localPath,
       createdAt: DateTime.now().toUtc(),
-      bytes: bytes,
+      bytes: payload,
     );
   }
 
@@ -83,22 +96,41 @@ class FileUploadQueue {
           ..where((t) => t.status.equals(status))
           ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
         .get();
-    return rows
-        .map(
-          (r) => PendingUpload(
-            uploadId: r.uploadId,
-            fileName: r.fileName,
-            mime: r.mime,
-            sizeBytes: r.sizeBytes,
-            status: r.status,
-            localPath: r.localPath,
-            remoteFileId: r.remoteFileId,
-            error: r.error,
-            createdAt: r.createdAt.toUtc(),
-            bytes: _bytes[r.uploadId],
-          ),
-        )
-        .toList();
+    return rows.map(_fromRow).toList();
+  }
+
+  PendingUpload _fromRow(FileUploadRow r) {
+    final stored = r.payload;
+    List<int>? bytes = _bytes[r.uploadId];
+    if ((bytes == null || bytes.isEmpty) && stored != null && stored.isNotEmpty) {
+      bytes = List<int>.from(stored);
+      _bytes[r.uploadId] = bytes;
+    }
+    return PendingUpload(
+      uploadId: r.uploadId,
+      fileName: r.fileName,
+      mime: r.mime,
+      sizeBytes: r.sizeBytes,
+      status: r.status,
+      localPath: r.localPath,
+      remoteFileId: r.remoteFileId,
+      error: r.error,
+      createdAt: r.createdAt.toUtc(),
+      bytes: bytes,
+    );
+  }
+
+  Future<List<int>?> _loadBytes(String uploadId) async {
+    final cached = _bytes[uploadId];
+    if (cached != null && cached.isNotEmpty) return cached;
+    final row = await (_db.select(_db.fileUploads)
+          ..where((t) => t.uploadId.equals(uploadId)))
+        .getSingleOrNull();
+    final stored = row?.payload;
+    if (stored == null || stored.isEmpty) return null;
+    final bytes = List<int>.from(stored);
+    _bytes[uploadId] = bytes;
+    return bytes;
   }
 
   Future<Map<String, dynamic>> flush() async {
@@ -106,14 +138,14 @@ class FileUploadQueue {
     var uploaded = 0;
     var failed = 0;
     for (final item in pending) {
-      final bytes = _bytes[item.uploadId];
+      final bytes = await _loadBytes(item.uploadId);
       if (bytes == null || bytes.isEmpty) {
         await _mark(item.uploadId, status: 'failed', error: 'missing bytes');
         failed++;
         continue;
       }
       try {
-        final file = await _docs.uploadBytes(
+        final file = await _uploadBytes(
           fileName: item.fileName,
           mime: item.mime,
           bytes: bytes,
@@ -122,6 +154,7 @@ class FileUploadQueue {
           item.uploadId,
           status: 'uploaded',
           remoteFileId: file['id']?.toString(),
+          clearPayload: true,
         );
         _bytes.remove(item.uploadId);
         uploaded++;
@@ -143,12 +176,14 @@ class FileUploadQueue {
     required String status,
     String? remoteFileId,
     String? error,
+    bool clearPayload = false,
   }) {
     return (_db.update(_db.fileUploads)..where((t) => t.uploadId.equals(uploadId))).write(
       FileUploadsCompanion(
         status: Value(status),
         remoteFileId: Value(remoteFileId),
         error: Value(error),
+        payload: clearPayload ? const Value(null) : const Value.absent(),
       ),
     );
   }
