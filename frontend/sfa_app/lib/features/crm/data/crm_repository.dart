@@ -18,4 +18,18 @@ class CrmRepository {
     final data = envelope['data'] as List<dynamic>? ?? const [];
     return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
+
+  Future<Map<String, dynamic>> createCustomer({
+    required String code,
+    required String name,
+    String type = 'outlet',
+  }) async {
+    final envelope = await _api.post('/customers', data: {
+      'code': code,
+      'name': name,
+      'type': type,
+      'status': 'active',
+    });
+    return Map<String, dynamic>.from(envelope['data'] as Map);
+  }
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/Dovud1997/Dovud/backend/internal/modules/fieldforce/domain"
 	apperrors "github.com/Dovud1997/Dovud/backend/internal/platform/errors"
+	"github.com/Dovud1997/Dovud/backend/internal/platform/syncport"
 	"github.com/google/uuid"
 )
 
@@ -15,6 +16,7 @@ type Service struct {
 	routes domain.RouteRepository
 	visits domain.VisitRepository
 	gps    domain.GpsRepository
+	sync   syncport.ChangeRecorder
 }
 
 func NewService(
@@ -24,6 +26,18 @@ func NewService(
 	gps domain.GpsRepository,
 ) *Service {
 	return &Service{agents: agents, routes: routes, visits: visits, gps: gps}
+}
+
+func (s *Service) WithSync(rec syncport.ChangeRecorder) *Service {
+	s.sync = rec
+	return s
+}
+
+func (s *Service) recordVisit(ctx context.Context, tenantID uuid.UUID, dto *VisitDTO) {
+	if s.sync == nil || dto == nil {
+		return
+	}
+	_ = s.sync.RecordChange(ctx, tenantID, "visit", dto.ID.String(), dto.Version, false, dto)
 }
 
 // --- Agents ---
@@ -469,6 +483,7 @@ func (s *Service) CheckIn(ctx context.Context, tenantID uuid.UUID, in CheckInInp
 		return nil, err
 	}
 	dto := toVisitDTO(*v, []domain.VisitPhoto{}, []domain.VisitComment{})
+	s.recordVisit(ctx, tenantID, &dto)
 	return &dto, nil
 }
 
@@ -493,6 +508,7 @@ func (s *Service) CheckOut(ctx context.Context, tenantID, visitID uuid.UUID, in 
 		return nil, err
 	}
 	dto := toVisitDTO(*v, nil, nil)
+	s.recordVisit(ctx, tenantID, &dto)
 	return &dto, nil
 }
 

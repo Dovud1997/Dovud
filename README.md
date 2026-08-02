@@ -2,7 +2,7 @@
 
 White Label SaaS platform for sales force automation — multi-tenant, offline-capable, enterprise-ready.
 
-**Status:** Roadmap complete through P20 (offline sync, conflicts, Drift wasm, Firebase scaffolding)
+**Status:** P21 delivered (domain→sync fan-out + agent writes) on completed P0–P20 roadmap
 
 ## Architecture
 
@@ -235,7 +235,12 @@ Without Firebase configured, the app falls back to `stub-push-*` tokens (worker 
 
 ## Deferred (post-roadmap)
 
-Domain write → changelog fan-out for every module · agent screens enqueueing all writes · offline photo upload queue · Redis sync locks · WebSocket live channel · field-level merge UX
+**P21 — Domain → sync fan-out · agent writes** *(delivered)*
+- `RecordChange` wired from orders / customers / visits into `sync_change_log`
+- Agent Flutter screens: create customer, draft order, visit check-in/out via online-first + outbox fallback
+- Helm chart `0.21.0`
+
+Still deferred: offline photo upload queue · Redis sync locks · WebSocket live channel · sync push applying into domain tables · field-level merge UX
 
 ## Locales & themes
 

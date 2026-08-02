@@ -11,15 +11,29 @@ import (
 
 	"github.com/Dovud1997/Dovud/backend/internal/modules/orders/domain"
 	apperrors "github.com/Dovud1997/Dovud/backend/internal/platform/errors"
+	"github.com/Dovud1997/Dovud/backend/internal/platform/syncport"
 	"github.com/google/uuid"
 )
 
 type Service struct {
 	orders domain.OrderRepository
+	sync   syncport.ChangeRecorder
 }
 
 func NewService(orders domain.OrderRepository) *Service {
 	return &Service{orders: orders}
+}
+
+func (s *Service) WithSync(rec syncport.ChangeRecorder) *Service {
+	s.sync = rec
+	return s
+}
+
+func (s *Service) record(ctx context.Context, tenantID uuid.UUID, dto *OrderDTO) {
+	if s.sync == nil || dto == nil {
+		return
+	}
+	_ = s.sync.RecordChange(ctx, tenantID, "order", dto.ID.String(), dto.Version, false, dto)
 }
 
 type OrderLineDTO struct {
@@ -254,6 +268,7 @@ func (s *Service) CreateOrder(ctx context.Context, tenantID uuid.UUID, in Create
 		return nil, err
 	}
 	dto := toOrderDTO(*order, lines)
+	s.record(ctx, tenantID, &dto)
 	return &dto, nil
 }
 
@@ -329,6 +344,7 @@ func (s *Service) UpdateDraft(ctx context.Context, tenantID, id uuid.UUID, in Up
 	}
 
 	dto := toOrderDTO(*o, lines)
+	s.record(ctx, tenantID, &dto)
 	return &dto, nil
 }
 
@@ -355,6 +371,7 @@ func (s *Service) transition(ctx context.Context, tenantID, id uuid.UUID, toStat
 		return nil, err
 	}
 	dto := toOrderDTO(*o, lines)
+	s.record(ctx, tenantID, &dto)
 	return &dto, nil
 }
 

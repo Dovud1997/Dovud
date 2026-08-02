@@ -6,6 +6,7 @@ import (
 
 	"github.com/Dovud1997/Dovud/backend/internal/modules/crm/domain"
 	apperrors "github.com/Dovud1997/Dovud/backend/internal/platform/errors"
+	"github.com/Dovud1997/Dovud/backend/internal/platform/syncport"
 	"github.com/google/uuid"
 )
 
@@ -14,6 +15,7 @@ type Service struct {
 	contacts   domain.CustomerContactRepository
 	addresses  domain.CustomerAddressRepository
 	categories domain.CustomerCategoryRepository
+	sync       syncport.ChangeRecorder
 }
 
 func NewService(
@@ -23,6 +25,18 @@ func NewService(
 	categories domain.CustomerCategoryRepository,
 ) *Service {
 	return &Service{customers: customers, contacts: contacts, addresses: addresses, categories: categories}
+}
+
+func (s *Service) WithSync(rec syncport.ChangeRecorder) *Service {
+	s.sync = rec
+	return s
+}
+
+func (s *Service) recordCustomer(ctx context.Context, tenantID uuid.UUID, dto *CustomerDTO) {
+	if s.sync == nil || dto == nil {
+		return
+	}
+	_ = s.sync.RecordChange(ctx, tenantID, "customer", dto.ID.String(), dto.Version, false, dto)
 }
 
 type CustomerDTO struct {
@@ -112,6 +126,7 @@ func (s *Service) CreateCustomer(ctx context.Context, tenantID uuid.UUID, in Cus
 		return nil, err
 	}
 	dto := toCustomerDTO(*c)
+	s.recordCustomer(ctx, tenantID, &dto)
 	return &dto, nil
 }
 
@@ -157,11 +172,18 @@ func (s *Service) UpdateCustomer(ctx context.Context, tenantID, id uuid.UUID, in
 		return nil, err
 	}
 	dto := toCustomerDTO(*c)
+	s.recordCustomer(ctx, tenantID, &dto)
 	return &dto, nil
 }
 
 func (s *Service) DeleteCustomer(ctx context.Context, tenantID, id uuid.UUID) error {
-	return s.customers.SoftDelete(ctx, tenantID, id)
+	if err := s.customers.SoftDelete(ctx, tenantID, id); err != nil {
+		return err
+	}
+	if s.sync != nil {
+		_ = s.sync.RecordChange(ctx, tenantID, "customer", id.String(), 0, true, map[string]any{"id": id.String()})
+	}
+	return nil
 }
 
 type ContactDTO struct {
