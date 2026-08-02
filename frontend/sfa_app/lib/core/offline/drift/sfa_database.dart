@@ -55,7 +55,24 @@ class FileUploads extends Table {
   Set<Column<Object>> get primaryKey => {uploadId};
 }
 
-@DriftDatabase(tables: [CachedEntities, SyncMeta, OutboxOps, FileUploads])
+@DataClassName('GpsPendingRow')
+class GpsPending extends Table {
+  TextColumn get pointId => text()();
+  TextColumn get agentId => text()();
+  TextColumn get visitId => text().nullable()();
+  RealColumn get lat => real()();
+  RealColumn get lng => real()();
+  RealColumn get accuracy => real().nullable()();
+  DateTimeColumn get recordedAt => dateTime()();
+  TextColumn get status => text().withDefault(const Constant('pending'))();
+  TextColumn get error => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {pointId};
+}
+
+@DriftDatabase(tables: [CachedEntities, SyncMeta, OutboxOps, FileUploads, GpsPending])
 class SfaDatabase extends _$SfaDatabase {
   SfaDatabase(super.e);
 
@@ -68,7 +85,7 @@ class SfaDatabase extends _$SfaDatabase {
   factory SfaDatabase.memory(QueryExecutor executor) => SfaDatabase(executor);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -79,6 +96,9 @@ class SfaDatabase extends _$SfaDatabase {
           }
           if (from < 3) {
             await m.addColumn(fileUploads, fileUploads.payload);
+          }
+          if (from < 4) {
+            await m.createTable(gpsPending);
           }
         },
       );

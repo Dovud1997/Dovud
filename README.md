@@ -298,7 +298,13 @@ Without Firebase configured, the app falls back to `stub-push-*` tokens (worker 
 - Shared `conflict_line_merge` helper + unit tests
 - Helm chart `0.31.0`
 
-Roadmap phases P1–P31 delivered. Optional polish: OS background sync, SQLCipher, GPS offline.
+**P32 — GPS offline queue**
+- Drift `gps_pending` (schema v4); `GpsQueue` enqueue/flush via `POST /gps/points`
+- UploadPoints → `RecordChange` `gps_point` + WS `gps.agent.updated`
+- Agent Routes: GPS button (demo coords); SyncWorker flushes GPS with uploads
+- Helm chart `0.32.0`
+
+Roadmap phases P1–P32 delivered. Optional polish: OS background sync, SQLCipher.
 
 ## Locales & themes
 

@@ -13,6 +13,17 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+type memRecorder struct {
+	n    int
+	last string
+}
+
+func (m *memRecorder) RecordChange(_ context.Context, _ uuid.UUID, entityType, _ string, _ int64, _ bool, _ any) error {
+	m.n++
+	m.last = entityType
+	return nil
+}
+
 func TestCheckInCheckOutAndGPS(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	if err != nil {
@@ -30,12 +41,13 @@ func TestCheckInCheckOutAndGPS(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	rec := &memRecorder{}
 	svc := application.NewService(
 		ffpersist.NewAgentRepo(db),
 		ffpersist.NewRouteRepo(db),
 		ffpersist.NewVisitRepo(db),
 		ffpersist.NewGpsRepo(db),
-	)
+	).WithSync(rec)
 	tenantID := uuid.New()
 	userID := uuid.New()
 	branchID := uuid.New()
@@ -82,6 +94,9 @@ func TestCheckInCheckOutAndGPS(t *testing.T) {
 	}})
 	if err != nil || len(points) == 0 {
 		t.Fatalf("gps: err=%v points=%v", err, points)
+	}
+	if rec.last != "gps_point" {
+		t.Fatalf("expected gps_point sync fan-out, last=%s n=%d", rec.last, rec.n)
 	}
 	live, err := svc.LivePosition(ctx, tenantID, agent.ID)
 	if err != nil || live == nil {
