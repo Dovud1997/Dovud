@@ -2,7 +2,7 @@
 
 White Label SaaS platform for sales force automation — multi-tenant, offline-capable, enterprise-ready.
 
-**Status:** P16 delivered (Drift offline DB + Firebase options) on top of P0–P15
+**Status:** Roadmap complete through P20 (offline sync, conflicts, Drift wasm, Firebase scaffolding)
 
 ## Architecture
 
@@ -13,6 +13,8 @@ Full design pack: **[docs/architecture/README.md](docs/architecture/README.md)**
 - **Backend:** Go, Fiber, GORM, PostgreSQL (SQLite for local/dev), Redis, RabbitMQ, MinIO
 - **Frontend:** Flutter (Android, iOS, Web Admin)
 - **Delivery:** Docker Compose, Kubernetes-ready Dockerfile
+- **Offline:** Drift SQLite (native + web Wasm) · outbox · conflict resolve UX
+- **Push:** FCM HTTP v1 (server) · `firebase_messaging` client (bring-your-own Firebase project)
 
 ## Quick start (Docker)
 
@@ -188,9 +190,52 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 - Enable with `--dart-define=SFA_FIREBASE_CONFIGURED=true` or native plist/json + Gradle plugin
 - Helm chart `0.16.0`
 
-## Next (P17+)
+**P17 — Conflict UX**
+- Resolve applies `server_wins` / `client_wins` (client win appends changelog)
+- Flutter Sync center lists conflicts; resolve screen Take server / Keep mine
+- Outbox marks `conflict` / `rejected` statuses; real `DeviceService` device id on sync calls
+- Helm chart `0.17.0`
 
-Background sync worker · conflict UX · Drift web (wasm) · production Firebase project wiring
+**P18 — Background sync worker**
+- `SyncWorker`: periodic + connectivity regain + app resume → push then pull
+- Sync center shows last success/error; “Run sync cycle” action
+- Helm chart `0.18.0`
+
+**P19 — Drift web (Wasm)**
+- `drift_flutter` opens the same `SfaDatabase` on web (Wasm) and mobile (native)
+- Web EntityCache/outbox use Drift (blob remains migration source)
+- Helm chart `0.19.0`
+
+**P20 — Firebase enablement (BYO project)**
+- Placeholder `firebase_options.dart` + native `.example` configs; Gradle plugin hooks documented
+- No production secrets in repo — run `flutterfire configure`, copy examples, set `SFA_FIREBASE_CONFIGURED=true`
+- Helm chart `0.20.0`
+
+## Firebase setup (production)
+
+```bash
+cd frontend/sfa_app
+# 1) Generate real options (overwrites lib/firebase_options.dart)
+dart pub global activate flutterfire_cli
+flutterfire configure
+
+# 2) Native files
+cp android/app/google-services.json.example android/app/google-services.json
+cp ios/Runner/GoogleService-Info.plist.example ios/Runner/GoogleService-Info.plist
+# replace placeholders with Firebase console files
+
+# 3) Uncomment Google Services plugin in:
+#    android/settings.gradle  and  android/app/build.gradle
+
+# 4) Run with Dart options enabled
+flutter run --dart-define=SFA_FIREBASE_CONFIGURED=true
+```
+
+Without Firebase configured, the app falls back to `stub-push-*` tokens (worker skips them).
+
+## Deferred (post-roadmap)
+
+Domain write → changelog fan-out for every module · agent screens enqueueing all writes · offline photo upload queue · Redis sync locks · WebSocket live channel · field-level merge UX
 
 ## Locales & themes
 

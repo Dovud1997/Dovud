@@ -4,7 +4,7 @@ import 'package:sfa_app/core/offline/local_outbox.dart';
 import 'package:sfa_app/core/offline/outbox_store.dart';
 import 'package:sfa_app/core/offline/secure_blob_store.dart';
 
-/// Encrypted blob outbox (web + migration source).
+/// Encrypted blob outbox (migration source / emergency fallback).
 class BlobOutboxStore implements OutboxStore {
   BlobOutboxStore({SecureBlobStore? blobs}) : _blobs = blobs ?? SecureBlobStore();
 
@@ -12,19 +12,30 @@ class BlobOutboxStore implements OutboxStore {
 
   final SecureBlobStore _blobs;
 
-  @override
-  Future<List<OutboxOp>> list() async {
+  Future<List<OutboxOp>> _all() async {
     final raw = await _blobs.read(key);
     if (raw == null || raw.isEmpty) return const [];
     final list = jsonDecode(raw) as List<dynamic>;
     return list.map((e) => OutboxOp.fromJson(Map<String, dynamic>.from(e as Map))).toList();
   }
 
+  Future<void> _save(List<OutboxOp> ops) async {
+    await _blobs.write(key, jsonEncode(ops.map((e) => e.toJson()).toList()));
+  }
+
+  @override
+  Future<List<OutboxOp>> list({String? status}) async {
+    final all = await _all();
+    final filter = (status == null || status.isEmpty) ? 'pending' : status;
+    return all.where((o) => o.status == filter).toList();
+  }
+
   @override
   Future<void> enqueue(OutboxOp op) async {
-    final current = await list();
+    final current = await _all();
+    op.status = 'pending';
     current.add(op);
-    await _blobs.write(key, jsonEncode(current.map((e) => e.toJson()).toList()));
+    await _save(current);
   }
 
   @override
@@ -33,7 +44,16 @@ class BlobOutboxStore implements OutboxStore {
   @override
   Future<void> removeByOpIds(Iterable<String> ids) async {
     final set = ids.toSet();
-    final remaining = (await list()).where((o) => !set.contains(o.opId)).toList();
-    await _blobs.write(key, jsonEncode(remaining.map((e) => e.toJson()).toList()));
+    final remaining = (await _all()).where((o) => !set.contains(o.opId)).toList();
+    await _save(remaining);
+  }
+
+  @override
+  Future<void> markStatus(String opId, String status) async {
+    final all = await _all();
+    for (final o in all) {
+      if (o.opId == opId) o.status = status;
+    }
+    await _save(all);
   }
 }

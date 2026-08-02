@@ -1,10 +1,5 @@
-import 'dart:io';
-
 import 'package:drift/drift.dart';
-import 'package:drift/native.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
-import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
+import 'package:drift_flutter/drift_flutter.dart';
 
 part 'sfa_database.g.dart';
 
@@ -46,20 +41,13 @@ class OutboxOps extends Table {
 class SfaDatabase extends _$SfaDatabase {
   SfaDatabase(super.e);
 
-  /// In-memory DB for unit tests.
-  SfaDatabase.memory() : super(NativeDatabase.memory());
-
-  /// Persistent app DB under documents directory.
+  /// Persistent DB for all platforms (Native on IO, Wasm on web via drift_flutter).
   factory SfaDatabase.open() {
-    return SfaDatabase(LazyDatabase(() async {
-      if (Platform.isAndroid) {
-        await applyWorkaroundToOpenSqlite3OnOldAndroidVersions();
-      }
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File(p.join(dir.path, 'sfa_offline_v1.db'));
-      return NativeDatabase.createInBackground(file);
-    }));
+    return SfaDatabase(driftDatabase(name: 'sfa_offline_v1'));
   }
+
+  /// In-memory executor for unit tests (VM only).
+  factory SfaDatabase.memory(QueryExecutor executor) => SfaDatabase(executor);
 
   @override
   int get schemaVersion => 1;

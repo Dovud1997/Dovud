@@ -1,3 +1,4 @@
+import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sfa_app/core/offline/drift/drift_entity_cache.dart';
 import 'package:sfa_app/core/offline/drift/drift_outbox_store.dart';
@@ -8,7 +9,7 @@ void main() {
   late SfaDatabase db;
 
   setUp(() {
-    db = SfaDatabase.memory();
+    db = SfaDatabase.memory(NativeDatabase.memory());
   });
 
   tearDown(() async {
@@ -32,7 +33,7 @@ void main() {
     expect((await cache.listEntities('product')).length, 1);
   });
 
-  test('DriftOutboxStore enqueue list remove', () async {
+  test('DriftOutboxStore enqueue markStatus remove', () async {
     final store = DriftOutboxStore(db, enableBlobMigration: false);
 
     await store.enqueue(OutboxOp(
@@ -50,9 +51,10 @@ void main() {
     ));
 
     expect((await store.list()).length, 2);
+    await store.markStatus('op-1', 'conflict');
+    expect((await store.list(status: 'pending')).length, 1);
+    expect((await store.list(status: 'conflict')).single.opId, 'op-1');
     await store.removeByOpIds(['op-1']);
-    final left = await store.list();
-    expect(left.length, 1);
-    expect(left.first.opId, 'op-2');
+    expect((await store.list(status: 'conflict')), isEmpty);
   });
 }

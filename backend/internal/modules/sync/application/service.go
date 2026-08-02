@@ -344,13 +344,39 @@ func (s *Service) ListConflicts(ctx context.Context, tenantID uuid.UUID, deviceI
 
 func (s *Service) ResolveConflict(ctx context.Context, tenantID, id uuid.UUID, in ResolveConflictInput) (*ConflictDTO, error) {
 	resolution := strings.TrimSpace(in.Resolution)
-	if resolution == "" {
+	switch resolution {
+	case domain.ResolutionServerWins, domain.ResolutionClientWins:
+	default:
 		return nil, apperrors.ErrValidation
+	}
+	c, err := s.conflicts.FindByID(ctx, tenantID, id)
+	if err != nil {
+		return nil, err
+	}
+	if c.Status != domain.ConflictStatusOpen {
+		dto := toConflictDTO(*c)
+		return &dto, nil
+	}
+	if resolution == domain.ResolutionClientWins {
+		newVersion := c.ServerVersion + 1
+		if newVersion < 1 {
+			newVersion = 1
+		}
+		change := &domain.SyncChange{
+			TenantID: tenantID, EntityType: c.EntityType, EntityID: c.EntityID,
+			Version: newVersion, Deleted: false, PayloadJSON: c.ClientPayload,
+		}
+		if err := s.changelog.Append(ctx, change); err != nil {
+			return nil, err
+		}
+		if c.ClientOpID != "" {
+			_ = s.changelog.MarkAppliedOp(ctx, tenantID, c.ClientOpID)
+		}
 	}
 	if err := s.conflicts.Resolve(ctx, tenantID, id, resolution); err != nil {
 		return nil, err
 	}
-	c, err := s.conflicts.FindByID(ctx, tenantID, id)
+	c, err = s.conflicts.FindByID(ctx, tenantID, id)
 	if err != nil {
 		return nil, err
 	}
