@@ -31,8 +31,10 @@ class AuthRepository {
   final DeviceService _devices;
   final FlutterSecureStorage _storage;
 
-  static const _accessKey = 'access_token';
-  static const _refreshKey = 'refresh_token';
+  static const accessTokenKey = 'access_token';
+  static const refreshTokenKey = 'refresh_token';
+  static const _accessKey = accessTokenKey;
+  static const _refreshKey = refreshTokenKey;
 
   Future<AuthSession> login({
     required String tenantCode,

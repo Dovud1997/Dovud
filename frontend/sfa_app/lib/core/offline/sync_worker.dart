@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sfa_app/core/offline/background_sync.dart' as bg_sync;
 import 'package:sfa_app/core/offline/file_upload_queue.dart';
 import 'package:sfa_app/core/offline/gps_queue.dart';
 import 'package:sfa_app/core/offline/offline_store.dart';
@@ -15,6 +16,8 @@ final syncWorkerProvider = Provider<SyncWorker>((ref) {
 });
 
 /// Foreground background-sync: periodic + connectivity + app resume.
+///
+/// Also schedules an OS WorkManager / BGTask (~15m) while authenticated.
 class SyncWorker with WidgetsBindingObserver {
   SyncWorker(this._ref) {
     WidgetsBinding.instance.addObserver(this);
@@ -25,6 +28,7 @@ class SyncWorker with WidgetsBindingObserver {
       final online = results.any((r) => r != ConnectivityResult.none);
       if (online) unawaited(tick(reason: 'connectivity'));
     });
+    unawaited(_safeScheduleOsBackgroundSync());
   }
 
   final Ref _ref;
@@ -39,6 +43,19 @@ class SyncWorker with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _connectivitySub?.cancel();
+    unawaited(_safeCancelOsBackgroundSync());
+  }
+
+  Future<void> _safeScheduleOsBackgroundSync() async {
+    try {
+      await bg_sync.scheduleBackgroundSync();
+    } catch (_) {}
+  }
+
+  Future<void> _safeCancelOsBackgroundSync() async {
+    try {
+      await bg_sync.cancelBackgroundSync();
+    } catch (_) {}
   }
 
   @override

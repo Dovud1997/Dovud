@@ -167,6 +167,6 @@ Retries: 3–5 with backoff → DLQ. Idempotent consumers via `event_id`.
 
 | Job | Platform | Description |
 |-----|----------|-------------|
-| `BackgroundSyncTask` | Android WorkManager / iOS BGTask | Push outbox + pull deltas |
-| `GpsBatchFlush` | periodic | Flush buffered GPS |
+| `BackgroundSyncTask` (`sfa.background.sync`) | Android WorkManager (~15m) / iOS BGTask + background fetch | Push outbox + pull deltas + upload/GPS flush |
+| `GpsBatchFlush` | part of background + foreground SyncWorker | Flush buffered GPS |
 | `PushTokenRefresh` | on token change | Register device |

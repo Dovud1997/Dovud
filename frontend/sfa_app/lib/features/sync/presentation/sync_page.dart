@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sfa_app/core/live/live_channel.dart';
+import 'package:sfa_app/core/offline/background_sync.dart' as bg_sync;
 import 'package:sfa_app/core/offline/local_outbox.dart';
 import 'package:sfa_app/core/offline/offline_store.dart';
 import 'package:sfa_app/core/offline/sync_worker.dart';
@@ -27,6 +28,10 @@ final cachedCustomersProvider = FutureProvider.autoDispose<int>((ref) async {
   return (await ref.watch(offlineStoreProvider).listEntities('customer')).length;
 });
 
+final osBackgroundSyncStatusProvider = FutureProvider.autoDispose<String>((ref) {
+  return bg_sync.readOsBackgroundSyncSubtitle();
+});
+
 class SyncPage extends ConsumerStatefulWidget {
   const SyncPage({super.key});
 
@@ -48,6 +53,7 @@ class _SyncPageState extends ConsumerState<SyncPage> {
       ref.invalidate(conflictsProvider);
       ref.invalidate(cachedProductsProvider);
       ref.invalidate(cachedCustomersProvider);
+      ref.invalidate(osBackgroundSyncStatusProvider);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
@@ -100,13 +106,20 @@ class _SyncPageState extends ConsumerState<SyncPage> {
                     subtitle: Text('${s['open_conflicts'] ?? conflicts.length}'),
                   ),
                   ListTile(
-                    title: const Text('Background sync'),
+                    title: const Text('Foreground sync'),
                     subtitle: Text(
                       worker.lastError != null
                           ? 'error: ${worker.lastError}'
                           : worker.lastSuccessAt == null
                               ? 'waiting'
                               : 'ok · ${worker.lastSuccessAt!.toIso8601String()}',
+                    ),
+                  ),
+                  ListTile(
+                    title: const Text('OS background sync'),
+                    subtitle: Text(
+                      '${bg_sync.osBackgroundSyncStatusLabel} · '
+                      '${ref.watch(osBackgroundSyncStatusProvider).valueOrNull ?? '…'}',
                     ),
                   ),
                   ListTile(
