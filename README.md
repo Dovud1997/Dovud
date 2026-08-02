@@ -14,6 +14,22 @@ Full design pack: **[docs/architecture/README.md](docs/architecture/README.md)**
 - **Frontend:** Flutter (Android, iOS, Web Admin)
 - **Delivery:** Docker Compose, Kubernetes-ready Dockerfile
 
+## Quick start (Docker)
+
+```bash
+# Full stack: Postgres, Redis, RabbitMQ, MinIO, API, worker, scheduler, Web Admin
+docker compose up --build -d
+
+# Web UI:  http://localhost:3000
+# API:     http://localhost:8080/api/v1
+# Mailhog: http://localhost:8025
+# MinIO:   http://localhost:9001  (minioadmin / minioadmin)
+```
+
+Demo login in the browser: tenant `demo`, `admin@demo.local` / `Admin123!`
+
+On restricted VMs where container DNS/routing fails, run services with `network_mode: host` (Linux only) or use local SQLite API + `flutter run -d chrome`.
+
 ## Quick start (local API)
 
 ```bash

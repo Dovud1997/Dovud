@@ -1,0 +1,10 @@
+{
+  "name": "SFA",
+  "short_name": "SFA",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#F3F7F6",
+  "theme_color": "#0F766E",
+  "description": "Sales Force Automation",
+  "orientation": "portrait-primary"
+}

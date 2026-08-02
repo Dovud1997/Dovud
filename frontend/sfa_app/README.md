@@ -13,7 +13,7 @@ White-label shell for Android / iOS / Web Admin.
 - Branding logo upload via files presign
 - PushTokenSource abstraction (stub by default; FCM injectable)
 
-## Run
+## Run (local)
 
 ```bash
 # Start API first (SQLite local or docker compose)
@@ -23,6 +23,16 @@ cd ../frontend/sfa_app
 flutter pub get
 flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:8080/api/v1
 ```
+
+## Run (Docker)
+
+From repo root:
+
+```bash
+docker compose up --build -d
+```
+
+Open **http://localhost:3000** (Flutter web via nginx, API proxied at `/api/v1`).
 
 Demo credentials:
 

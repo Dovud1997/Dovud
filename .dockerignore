@@ -1,0 +1,9 @@
+**/.git
+**/sfa_dev.db*
+**/storage
+**/.dart_tool
+**/build
+**/node_modules
+**/.idea
+**/*.md
+backend/**/*_test.go
