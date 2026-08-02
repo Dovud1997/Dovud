@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sfa_app/features/auth/presentation/auth_controller.dart';
+import 'package:sfa_app/features/notifications/data/notifications_repository.dart';
 
 class AgentMorePage extends ConsumerWidget {
   const AgentMorePage({super.key});
@@ -25,6 +26,13 @@ class AgentMorePage extends ConsumerWidget {
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.notifications_outlined),
           title: const Text('Notifications'),
+          trailing: Consumer(
+            builder: (context, ref, _) {
+              final n = ref.watch(unreadNotificationsCountProvider).valueOrNull ?? 0;
+              if (n <= 0) return const SizedBox.shrink();
+              return Text('$n', style: Theme.of(context).textTheme.labelLarge);
+            },
+          ),
           onTap: () => context.push('/field/notifications'),
         ),
         ListTile(

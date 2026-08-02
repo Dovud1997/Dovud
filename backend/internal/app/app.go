@@ -199,7 +199,7 @@ func New(cfgPath string) (*Application, error) {
 	ordersSvc.WithSync(syncSvc)
 	catalogSvc.WithSync(syncSvc)
 	returnsSvc.WithSync(syncSvc)
-	notifySvc := notifyapp.NewService(notifyRepo, outboxStore)
+	notifySvc := notifyapp.NewService(notifyRepo, outboxStore).WithLive(liveHub)
 	analyticsSvc := analyticsapp.NewService(kpiRepo, db)
 	auditSvc := auditapp.NewService(auditRepo, outboxStore)
 	auditWriter := audithttp.NewHTTPWriter(auditSvc, log)

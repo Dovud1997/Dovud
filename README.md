@@ -276,7 +276,13 @@ Without Firebase configured, the app falls back to `stub-push-*` tokens (worker 
 - WS `return.updated`; agent More → Returns + compose with lines
 - Helm chart `0.27.0`
 
-Roadmap phases P1–P27 delivered. Optional polish: notifications mark-read, Redis Pub/Sub WS scale-out, OS background sync, SQLCipher, GPS offline.
+**P28 — Notifications mark-read · unread badge**
+- Mark-read / mark-all use `notifications:read` (own inbox)
+- Flutter: mark one / mark all, unread filter, app-bar badge (agent + admin)
+- WS `notification.created` from create → refresh unread count
+- Helm chart `0.28.0`
+
+Roadmap phases P1–P28 delivered. Optional polish: Redis Pub/Sub WS scale-out, OS background sync, SQLCipher, GPS offline, upload bytes on disk, per-line conflict merge.
 
 ## Locales & themes
 

@@ -16,11 +16,11 @@ func NewHandler(svc *application.Service) *Handler { return &Handler{svc: svc} }
 func (h *Handler) Register(r fiber.Router) {
 	r.Get("/notifications", httpx.RequirePermissions("notifications:read"), h.List)
 	r.Get("/notifications/unread-count", httpx.RequirePermissions("notifications:read"), h.UnreadCount)
-	r.Post("/notifications/read-all", httpx.RequirePermissions("notifications:write"), h.MarkAllRead)
+	r.Post("/notifications/read-all", httpx.RequirePermissions("notifications:read"), h.MarkAllRead)
 	r.Post("/notifications/test", httpx.RequirePermissions("notifications:write"), h.CreateTest)
 	r.Post("/notifications", httpx.RequirePermissions("notifications:write"), h.Create)
 	r.Get("/notifications/:id/deliveries", httpx.RequirePermissions("notifications:read"), h.ListDeliveries)
-	r.Post("/notifications/:id/read", httpx.RequirePermissions("notifications:write"), h.MarkRead)
+	r.Post("/notifications/:id/read", httpx.RequirePermissions("notifications:read"), h.MarkRead)
 }
 
 func (h *Handler) List(c *fiber.Ctx) error {

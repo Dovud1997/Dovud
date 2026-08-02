@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sfa_app/features/auth/presentation/auth_controller.dart';
+import 'package:sfa_app/features/notifications/data/notifications_repository.dart';
 
 class AgentShell extends ConsumerWidget {
   const AgentShell({super.key, required this.navigationShell});
@@ -19,14 +20,19 @@ class AgentShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final branding = ref.watch(sessionControllerProvider).branding;
+    final unread = ref.watch(unreadNotificationsCountProvider).valueOrNull ?? 0;
     return Scaffold(
       appBar: AppBar(
         title: Text(branding?.appName ?? 'SFA'),
         actions: [
           IconButton(
-            tooltip: 'Notifications',
-            onPressed: () => context.go('/more'),
-            icon: const Icon(Icons.notifications_outlined),
+            tooltip: unread > 0 ? 'Notifications ($unread)' : 'Notifications',
+            onPressed: () => context.push('/field/notifications'),
+            icon: Badge(
+              isLabelVisible: unread > 0,
+              label: Text(unread > 99 ? '99+' : '$unread'),
+              child: const Icon(Icons.notifications_outlined),
+            ),
           ),
         ],
       ),
