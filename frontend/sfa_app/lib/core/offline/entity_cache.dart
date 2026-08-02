@@ -1,5 +1,6 @@
-/// Typed local entity cache. Current impl is encrypted blob prefs;
-/// swap to Drift/sqflite later without changing Sync page call sites.
+/// Typed local entity cache.
+///
+/// Implementations: SQLite tables (mobile/desktop) and encrypted blob (web).
 abstract class EntityCache {
   Future<List<Map<String, dynamic>>> listEntities(String type);
 

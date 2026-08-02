@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:sfa_app/core/device/fcm_push_token_source.dart';
 import 'package:sfa_app/core/device/push_token_source.dart';
 import 'package:sfa_app/core/network/api_client.dart';
 
@@ -21,10 +23,12 @@ class DeviceService {
   final ApiClient _api;
   final FlutterSecureStorage _storage;
   PushTokenSource? _pushTokenSource;
+  StreamSubscription<String>? _refreshSub;
   static const _deviceKey = 'sfa_device_id_v1';
 
   void setPushTokenSource(PushTokenSource source) {
     _pushTokenSource = source;
+    _attachRefreshListener();
   }
 
   Future<String> deviceId() async {
@@ -44,9 +48,9 @@ class DeviceService {
   }
 
   PushTokenSource get _source =>
-      _pushTokenSource ?? StubPushTokenSource(deviceId);
+      _pushTokenSource ?? createPushTokenSource(deviceId);
 
-  /// Resolves FCM/APNs token when a real [PushTokenSource] is injected;
+  /// Resolves FCM/APNs token when Firebase is configured;
   /// otherwise returns a deterministic stub token.
   Future<String> pushToken() async {
     final token = await _source.getToken();
@@ -58,7 +62,22 @@ class DeviceService {
   @Deprecated('Use pushToken()')
   Future<String> pushTokenStub() => pushToken();
 
+  void _attachRefreshListener() {
+    _refreshSub?.cancel();
+    final stream = _source.onTokenRefresh;
+    if (stream == null) return;
+    _refreshSub = stream.listen((_) {
+      // Best-effort re-register; ignore failures (offline / logged out).
+      register().then((_) {}, onError: (_) {});
+    });
+  }
+
   Future<void> register({String? appVersion}) async {
+    if (_pushTokenSource == null) {
+      setPushTokenSource(createPushTokenSource(deviceId));
+    } else {
+      _attachRefreshListener();
+    }
     final id = await deviceId();
     final token = await pushToken();
     await _api.post('/auth/devices', data: {
