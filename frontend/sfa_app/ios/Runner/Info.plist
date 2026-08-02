@@ -55,5 +55,9 @@
 		<string>com.example.sfaApp.backgroundSync</string>
 		<string>workmanager.background.task</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>SFA uses your location to log agent GPS points and visit check-ins.</string>
+	<key>NSLocationUsageDescription</key>
+	<string>SFA uses your location to log agent GPS points and visit check-ins.</string>
 </dict>
 </plist>

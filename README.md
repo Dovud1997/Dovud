@@ -22,6 +22,9 @@ Full design pack: **[docs/architecture/README.md](docs/architecture/README.md)**
 # Full stack: Postgres, Redis, RabbitMQ, MinIO, API, worker, scheduler, Web Admin
 docker compose up --build -d
 
+# Restricted VMs (Docker bridge routing broken) — use host networking:
+sudo docker compose -f docker-compose.yml -f docker-compose.host.yml up --build -d
+
 # Web UI:  http://localhost:3000
 # API:     http://localhost:8080/api/v1
 # Mailhog: http://localhost:8025
@@ -30,7 +33,7 @@ docker compose up --build -d
 
 Demo login in the browser: tenant `demo`, `admin@demo.local` / `Admin123!`
 
-On restricted VMs where container DNS/routing fails, run services with `network_mode: host` (Linux only) or use local SQLite API + `flutter run -d chrome`.
+On restricted VMs where container DNS/routing fails, use `docker-compose.host.yml` (Linux `network_mode: host`) or local SQLite API + `flutter run -d chrome`.
 
 ## Quick start (local API)
 
@@ -317,7 +320,12 @@ Without Firebase configured, the app falls back to `stub-push-*` tokens (worker 
 - Web keeps AES SecureBlob cache/outbox (no SQLCipher); removes `drift_flutter` / plain `sqlite3_flutter_libs`
 - Helm chart `0.34.0`
 
-Roadmap phases P1–P34 delivered. Optional polish: device GPS.
+**P35 — Device GPS**
+- `geolocator` + `DeviceLocationService` (permission + high-accuracy fix)
+- Agent Routes GPS button and visit check-in use real device coords (no demo Tashkent)
+- Android/iOS location permission strings; Helm chart `0.35.0`
+
+Roadmap phases P1–P35 delivered.
 
 ## Locales & themes
 

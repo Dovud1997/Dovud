@@ -9,7 +9,18 @@ RUN flutter config --enable-web \
  && flutter pub get \
  && flutter gen-l10n \
  && flutter build web --release \
-      --dart-define=API_BASE_URL=/api/v1
+      --dart-define=API_BASE_URL=/api/v1 \
+ && rm -f build/web/flutter_service_worker.js \
+ && python3 - <<'PY'
+from pathlib import Path
+import re
+p = Path('build/web/flutter_bootstrap.js')
+text = p.read_text()
+text = re.sub(r'serviceWorkerSettings:\s*\{[^}]*\},?', 'serviceWorkerSettings: null,', text, count=1)
+text = re.sub(r'serviceWorkerVersion:\s*"[^"]*"\s*,?', '', text)
+p.write_text(text)
+print('disabled flutter service worker')
+PY
 
 FROM nginx:1.27-alpine
 COPY --from=build /app/build/web /usr/share/nginx/html

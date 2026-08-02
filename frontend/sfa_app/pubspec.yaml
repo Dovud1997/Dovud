@@ -30,6 +30,7 @@ dependencies:
   workmanager: ^0.5.2
   sqlcipher_flutter_libs: ^0.6.8
   sqlite3: ^2.9.4
+  geolocator: ^13.0.4
 
 dev_dependencies:
   flutter_test:

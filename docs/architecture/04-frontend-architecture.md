@@ -29,7 +29,7 @@ Recommended stack:
 | WS | web_socket_channel |
 | i18n | flutter_localizations + ARB (`ru`, `uz`, `en`) |
 | Theming | Dynamic ThemeData from branding API |
-| Maps / GPS | geolocator + google_maps_flutter / mapbox |
+| Maps / GPS | **geolocator** (device GPS for visits/check-in); maps optional later |
 | Push | firebase_messaging (+ APNs) |
 | Images | cached_network_image + image_picker + camera |
 | Charts | fl_chart |

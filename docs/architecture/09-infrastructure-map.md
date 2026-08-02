@@ -169,4 +169,5 @@ Retries: 3–5 with backoff → DLQ. Idempotent consumers via `event_id`.
 |-----|----------|-------------|
 | `BackgroundSyncTask` (`sfa.background.sync`) | Android WorkManager (~15m) / iOS BGTask + background fetch | Push outbox + pull deltas + upload/GPS flush |
 | `GpsBatchFlush` | part of background + foreground SyncWorker | Flush buffered GPS |
+| Device GPS | Flutter `geolocator` | Agent Routes GPS button + visit check-in coords |
 | `PushTokenRefresh` | on token change | Register device |
