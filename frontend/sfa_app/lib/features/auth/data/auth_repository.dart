@@ -1,10 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:sfa_app/core/device/device_service.dart';
 import 'package:sfa_app/core/network/api_client.dart';
 import 'package:sfa_app/features/auth/domain/user.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepository(ref.watch(apiClientProvider));
+  return AuthRepository(
+    ref.watch(apiClientProvider),
+    ref.watch(deviceServiceProvider),
+  );
 });
 
 class AuthSession {
@@ -20,10 +24,11 @@ class AuthSession {
 }
 
 class AuthRepository {
-  AuthRepository(this._api, {FlutterSecureStorage? storage})
+  AuthRepository(this._api, this._devices, {FlutterSecureStorage? storage})
       : _storage = storage ?? const FlutterSecureStorage();
 
   final ApiClient _api;
+  final DeviceService _devices;
   final FlutterSecureStorage _storage;
 
   static const _accessKey = 'access_token';
@@ -34,12 +39,13 @@ class AuthRepository {
     required String email,
     required String password,
   }) async {
+    final deviceId = await _devices.deviceId();
     final envelope = await _api.post('/auth/login', data: {
       'tenant_code': tenantCode,
       'email': email,
       'password': password,
-      'device_id': 'flutter',
-      'platform': 'flutter',
+      'device_id': deviceId,
+      'platform': _devices.platform,
     });
     final data = Map<String, dynamic>.from(envelope['data'] as Map);
     final session = AuthSession(
@@ -49,6 +55,7 @@ class AuthRepository {
     );
     await _persist(session);
     _api.setAccessToken(session.accessToken);
+    await _safeRegisterDevice();
     return session;
   }
 
@@ -60,6 +67,7 @@ class AuthRepository {
     try {
       final envelope = await _api.get('/auth/me');
       final user = AuthUser.fromJson(Map<String, dynamic>.from(envelope['data'] as Map));
+      await _safeRegisterDevice();
       return AuthSession(accessToken: access, refreshToken: refresh, user: user);
     } catch (_) {
       return refreshSession(refresh);
@@ -68,9 +76,10 @@ class AuthRepository {
 
   Future<AuthSession?> refreshSession(String refreshToken) async {
     try {
+      final deviceId = await _devices.deviceId();
       final envelope = await _api.post('/auth/refresh', data: {
         'refresh_token': refreshToken,
-        'device_id': 'flutter',
+        'device_id': deviceId,
       });
       final data = Map<String, dynamic>.from(envelope['data'] as Map);
       final session = AuthSession(
@@ -80,6 +89,7 @@ class AuthRepository {
       );
       await _persist(session);
       _api.setAccessToken(session.accessToken);
+      await _safeRegisterDevice();
       return session;
     } catch (_) {
       await clear();
@@ -94,6 +104,12 @@ class AuthRepository {
       }
     } catch (_) {}
     await clear();
+  }
+
+  Future<void> _safeRegisterDevice() async {
+    try {
+      await _devices.register();
+    } catch (_) {}
   }
 
   Future<void> _persist(AuthSession session) async {

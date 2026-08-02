@@ -41,6 +41,7 @@ type Runner struct {
 	files    *docspersist.FileRepo
 	notifs   *notifypersist.NotificationRepo
 	users    *identitypersist.UserRepo
+	devices  *identitypersist.DeviceRepo
 	seen     sync.Map
 }
 
@@ -74,7 +75,7 @@ func New(cfgPath string) (*Runner, error) {
 		cfg: cfg, log: log, db: db, outbox: outbox.NewStore(db), mq: mq,
 		store: store, notify: notify.NewRouter(cfg.Notify, log),
 		files: docspersist.NewFileRepo(db), notifs: notifypersist.NewNotificationRepo(db),
-		users: identitypersist.NewUserRepo(db),
+		users: identitypersist.NewUserRepo(db), devices: identitypersist.NewDeviceRepo(db),
 	}, nil
 }
 
@@ -171,11 +172,23 @@ func (r *Runner) handleNotify(ctx context.Context, env rabbitmqx.Envelope, d amq
 	title, _ := env.Payload["title"].(string)
 	body, _ := env.Payload["body"].(string)
 	to := userIDStr
-	if channel == "email" && userIDStr != "" {
+	if userIDStr != "" {
 		if uid, err := uuid.Parse(userIDStr); err == nil {
 			if tid, err := uuid.Parse(env.TenantID); err == nil {
-				if u, err := r.users.FindByID(ctx, tid, uid); err == nil {
-					to = u.Email
+				switch channel {
+				case "email":
+					if u, err := r.users.FindByID(ctx, tid, uid); err == nil {
+						to = u.Email
+					}
+				case "push":
+					if devices, err := r.devices.ListByUser(ctx, tid, uid); err == nil {
+						for _, d := range devices {
+							if d.PushToken != nil && *d.PushToken != "" {
+								to = *d.PushToken
+								break
+							}
+						}
+					}
 				}
 			}
 		}

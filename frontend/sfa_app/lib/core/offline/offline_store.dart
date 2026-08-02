@@ -1,28 +1,28 @@
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sfa_app/core/offline/local_outbox.dart';
+import 'package:sfa_app/core/offline/secure_blob_store.dart';
 import 'package:sfa_app/features/sync/data/sync_repository.dart';
 
 final offlineStoreProvider = Provider<OfflineStore>((ref) {
   return OfflineStore(ref.watch(syncRepositoryProvider), ref.watch(localOutboxProvider));
 });
 
-/// Lightweight local database (SharedPreferences-backed) for offline cache + outbox.
-/// Swap to Drift/Isar later without changing call sites.
+/// Encrypted local cache (SharedPreferences + secure key). Swap to Drift/Isar later.
 class OfflineStore {
-  OfflineStore(this._sync, this.outbox);
+  OfflineStore(this._sync, this.outbox, {SecureBlobStore? blobs})
+      : _blobs = blobs ?? SecureBlobStore();
 
   static const _entitiesKey = 'sfa_offline_entities_v1';
   static const _cursorKey = 'sfa_offline_cursor_v1';
 
   final SyncRepository _sync;
   final LocalOutbox outbox;
+  final SecureBlobStore _blobs;
 
   Future<Map<String, List<Map<String, dynamic>>>> _loadEntities() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_entitiesKey);
+    final raw = await _blobs.read(_entitiesKey);
     if (raw == null || raw.isEmpty) return {};
     final decoded = jsonDecode(raw) as Map<String, dynamic>;
     return decoded.map((k, v) {
@@ -35,8 +35,7 @@ class OfflineStore {
   }
 
   Future<void> _saveEntities(Map<String, List<Map<String, dynamic>>> data) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_entitiesKey, jsonEncode(data));
+    await _blobs.write(_entitiesKey, jsonEncode(data));
   }
 
   Future<void> upsertEntity(String type, Map<String, dynamic> entity) async {
@@ -60,13 +59,11 @@ class OfflineStore {
   }
 
   Future<String?> cursor() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_cursorKey);
+    return _blobs.read(_cursorKey);
   }
 
   Future<void> setCursor(String value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_cursorKey, value);
+    await _blobs.write(_cursorKey, value);
   }
 
   Future<Map<String, dynamic>> pullAndCache({String deviceId = 'flutter-web'}) async {

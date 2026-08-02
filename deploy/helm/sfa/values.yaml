@@ -57,6 +57,8 @@ env:
   SFA_SMTP_HOST: ""
   SFA_SMTP_PORT: "1025"
   SFA_SMTP_FROM: noreply@sfa.local
+  SFA_SMS_DRIVER: log
+  SFA_PUSH_DRIVER: log
   SFA_CORS_ORIGINS: https://sfa.local
   SFA_RATE_LIMIT_MAX: "120"
 

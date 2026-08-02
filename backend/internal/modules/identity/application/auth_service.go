@@ -269,6 +269,72 @@ func (s *AuthService) ChangePassword(ctx context.Context, tenantID, userID uuid.
 	return s.tokens.RevokeAllForUser(ctx, user.ID)
 }
 
+type RegisterDeviceInput struct {
+	DeviceID   string  `json:"device_id"`
+	Platform   string  `json:"platform"`
+	PushToken  *string `json:"push_token"`
+	AppVersion *string `json:"app_version"`
+}
+
+type DeviceDTO struct {
+	ID         uuid.UUID `json:"id"`
+	DeviceID   string    `json:"device_id"`
+	Platform   string    `json:"platform"`
+	PushToken  *string   `json:"push_token,omitempty"`
+	AppVersion *string   `json:"app_version,omitempty"`
+}
+
+func (s *AuthService) RegisterDevice(ctx context.Context, tenantID, userID uuid.UUID, in RegisterDeviceInput) (*DeviceDTO, error) {
+	deviceKey := strings.TrimSpace(in.DeviceID)
+	platform := strings.TrimSpace(in.Platform)
+	if deviceKey == "" || platform == "" {
+		return nil, apperrors.ErrValidation
+	}
+	dev := &domain.UserDevice{
+		TenantID: tenantID, UserID: userID, DeviceID: deviceKey,
+		Platform: platform, PushToken: in.PushToken, AppVersion: in.AppVersion,
+	}
+	if err := s.devices.Upsert(ctx, dev); err != nil {
+		return nil, err
+	}
+	rows, err := s.devices.ListByUser(ctx, tenantID, userID)
+	if err != nil {
+		return nil, err
+	}
+	for _, d := range rows {
+		if d.DeviceID == deviceKey {
+			return &DeviceDTO{
+				ID: d.ID, DeviceID: d.DeviceID, Platform: d.Platform,
+				PushToken: d.PushToken, AppVersion: d.AppVersion,
+			}, nil
+		}
+	}
+	return &DeviceDTO{DeviceID: deviceKey, Platform: platform, PushToken: in.PushToken, AppVersion: in.AppVersion}, nil
+}
+
+func (s *AuthService) UnregisterDevice(ctx context.Context, userID uuid.UUID, deviceKey string) error {
+	deviceKey = strings.TrimSpace(deviceKey)
+	if deviceKey == "" {
+		return apperrors.ErrValidation
+	}
+	return s.devices.DeleteByDeviceKey(ctx, userID, deviceKey)
+}
+
+func (s *AuthService) ListDevices(ctx context.Context, tenantID, userID uuid.UUID) ([]DeviceDTO, error) {
+	rows, err := s.devices.ListByUser(ctx, tenantID, userID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]DeviceDTO, 0, len(rows))
+	for _, d := range rows {
+		out = append(out, DeviceDTO{
+			ID: d.ID, DeviceID: d.DeviceID, Platform: d.Platform,
+			PushToken: d.PushToken, AppVersion: d.AppVersion,
+		})
+	}
+	return out, nil
+}
+
 func toUserDTO(u *domain.User, roles, perms []string) UserDTO {
 	if roles == nil {
 		roles = []string{}

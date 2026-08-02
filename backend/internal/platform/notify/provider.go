@@ -1,9 +1,13 @@
 package notify
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
+	"net/http"
 	"net/smtp"
 	"os"
 	"path/filepath"
@@ -71,8 +75,18 @@ func NewRouter(cfg config.NotifyConfig, log *slog.Logger) *Router {
 	default:
 		r.Email = &LogEmail{log: log}
 	}
-	r.SMS = &LogSMS{log: log}
-	r.Push = &LogPush{log: log}
+	switch strings.ToLower(strings.TrimSpace(cfg.SMS.Driver)) {
+	case "http", "webhook":
+		r.SMS = &HTTPWebhookSMS{url: cfg.SMS.WebhookURL, log: log, client: &http.Client{Timeout: 10 * time.Second}}
+	default:
+		r.SMS = &LogSMS{log: log}
+	}
+	switch strings.ToLower(strings.TrimSpace(cfg.Push.Driver)) {
+	case "http", "webhook":
+		r.Push = &HTTPWebhookPush{url: cfg.Push.WebhookURL, log: log, client: &http.Client{Timeout: 10 * time.Second}}
+	default:
+		r.Push = &LogPush{log: log}
+	}
 	return r
 }
 
@@ -144,12 +158,67 @@ func (p *LogSMS) Send(ctx context.Context, msg Message) error {
 	return nil
 }
 
+type HTTPWebhookSMS struct {
+	url    string
+	log    *slog.Logger
+	client *http.Client
+}
+
+func (p *HTTPWebhookSMS) Name() string { return "http-sms" }
+func (p *HTTPWebhookSMS) Send(ctx context.Context, msg Message) error {
+	if strings.TrimSpace(p.url) == "" {
+		return fmt.Errorf("sms webhook url not configured")
+	}
+	payload, _ := json.Marshal(map[string]any{
+		"channel": "sms", "to": msg.To, "body": msg.Body, "data": msg.Data,
+	})
+	return postJSON(ctx, p.client, p.url, payload)
+}
+
 type LogPush struct{ log *slog.Logger }
 
 func (p *LogPush) Name() string { return "log-push" }
 func (p *LogPush) Send(ctx context.Context, msg Message) error {
 	_ = ctx
 	p.log.Info("push (log)", "to", msg.To, "subject", msg.Subject, "body", msg.Body, "data", msg.Data)
+	return nil
+}
+
+type HTTPWebhookPush struct {
+	url    string
+	log    *slog.Logger
+	client *http.Client
+}
+
+func (p *HTTPWebhookPush) Name() string { return "http-push" }
+func (p *HTTPWebhookPush) Send(ctx context.Context, msg Message) error {
+	if strings.TrimSpace(p.url) == "" {
+		return fmt.Errorf("push webhook url not configured")
+	}
+	payload, _ := json.Marshal(map[string]any{
+		"channel": "push", "to": msg.To, "title": msg.Subject, "body": msg.Body, "data": msg.Data,
+	})
+	return postJSON(ctx, p.client, p.url, payload)
+}
+
+func postJSON(ctx context.Context, client *http.Client, url string, payload []byte) error {
+	if client == nil {
+		client = &http.Client{Timeout: 10 * time.Second}
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("webhook status %d", resp.StatusCode)
+	}
 	return nil
 }
 

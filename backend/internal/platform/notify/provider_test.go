@@ -2,6 +2,9 @@ package notify_test
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,5 +35,25 @@ func TestFileEmailProvider(t *testing.T) {
 	}
 	if !strings.Contains(string(raw), "Subject: P6") {
 		t.Fatalf("missing subject in %q", string(raw))
+	}
+}
+
+func TestHTTPWebhookSMS(t *testing.T) {
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer srv.Close()
+
+	router := notify.NewRouter(config.NotifyConfig{
+		SMS: config.SMSConfig{Driver: "http", WebhookURL: srv.URL},
+	}, nil)
+	if err := router.Send(context.Background(), "sms", notify.Message{To: "+99890", Body: "hi"}); err != nil {
+		t.Fatal(err)
+	}
+	if got["to"] != "+99890" || got["body"] != "hi" {
+		t.Fatalf("unexpected payload %#v", got)
 	}
 }

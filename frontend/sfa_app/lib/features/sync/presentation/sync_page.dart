@@ -92,7 +92,7 @@ class _SyncPageState extends ConsumerState<SyncPage> {
                   ListTile(
                     title: const Text('Offline cache'),
                     subtitle: Text(
-                      'products=$productsCached · customers=$customersCached (SharedPreferences; Drift deferred)',
+                      'products=$productsCached · customers=$customersCached (encrypted prefs; Drift deferred)',
                     ),
                   ),
                   if (_lastPullSummary.isNotEmpty)

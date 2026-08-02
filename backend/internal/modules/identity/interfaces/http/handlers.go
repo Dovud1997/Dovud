@@ -28,6 +28,9 @@ func (h *Handler) RegisterProtected(r fiber.Router) {
 	r.Get("/auth/me", h.Me)
 	r.Patch("/auth/me", h.UpdateMe)
 	r.Post("/auth/change-password", h.ChangePassword)
+	r.Get("/auth/devices", h.ListDevices)
+	r.Post("/auth/devices", h.RegisterDevice)
+	r.Delete("/auth/devices/:device_id", h.UnregisterDevice)
 
 	r.Get("/permissions", httpx.RequirePermissions("roles:read"), h.ListPermissions)
 	r.Get("/roles", httpx.RequirePermissions("roles:read"), h.ListRoles)
@@ -116,6 +119,45 @@ func (h *Handler) ChangePassword(c *fiber.Ctx) error {
 		return httpx.Fail(c, err)
 	}
 	if err := h.auth.ChangePassword(c.Context(), claims.TenantID, claims.UserID, body.CurrentPassword, body.NewPassword); err != nil {
+		return httpx.Fail(c, err)
+	}
+	return httpx.OK(c, fiber.Map{"ok": true})
+}
+
+func (h *Handler) ListDevices(c *fiber.Ctx) error {
+	claims, err := httpx.ClaimsFromCtx(c)
+	if err != nil {
+		return httpx.Fail(c, err)
+	}
+	res, err := h.auth.ListDevices(c.Context(), claims.TenantID, claims.UserID)
+	if err != nil {
+		return httpx.Fail(c, err)
+	}
+	return httpx.OK(c, res)
+}
+
+func (h *Handler) RegisterDevice(c *fiber.Ctx) error {
+	claims, err := httpx.ClaimsFromCtx(c)
+	if err != nil {
+		return httpx.Fail(c, err)
+	}
+	var in application.RegisterDeviceInput
+	if err := c.BodyParser(&in); err != nil {
+		return httpx.Fail(c, err)
+	}
+	res, err := h.auth.RegisterDevice(c.Context(), claims.TenantID, claims.UserID, in)
+	if err != nil {
+		return httpx.Fail(c, err)
+	}
+	return httpx.OK(c, res)
+}
+
+func (h *Handler) UnregisterDevice(c *fiber.Ctx) error {
+	claims, err := httpx.ClaimsFromCtx(c)
+	if err != nil {
+		return httpx.Fail(c, err)
+	}
+	if err := h.auth.UnregisterDevice(c.Context(), claims.UserID, c.Params("device_id")); err != nil {
 		return httpx.Fail(c, err)
 	}
 	return httpx.OK(c, fiber.Map{"ok": true})

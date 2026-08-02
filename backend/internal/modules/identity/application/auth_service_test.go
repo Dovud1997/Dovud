@@ -160,3 +160,46 @@ func TestLoginRefreshLogout(t *testing.T) {
 		t.Fatalf("logout: %v", err)
 	}
 }
+
+func TestRegisterDevice(t *testing.T) {
+	db := setupTestDB(t)
+	tokenSvc := auth.NewTokenService(config.AuthConfig{
+		AccessSecret:     "test-access-secret-32-characters!!",
+		RefreshSecret:    "test-refresh-secret-32-characters!",
+		AccessTTLMinutes: 15,
+		RefreshTTLDays:   30,
+		Issuer:           "sfa-test",
+	})
+	authSvc := application.NewAuthService(
+		identitypersist.NewUserRepo(db),
+		identitypersist.NewRefreshTokenRepo(db),
+		identitypersist.NewDeviceRepo(db),
+		tenantpersist.NewTenantRepo(db),
+		tokenSvc,
+	)
+	ctx := context.Background()
+	res, err := authSvc.Login(ctx, application.LoginInput{
+		TenantCode: "demo", Email: "admin@demo.local", Password: "Admin123!",
+		DeviceID: "dev-1", Platform: "web",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	token := "push-token-abc"
+	dev, err := authSvc.RegisterDevice(ctx, res.User.TenantID, res.User.ID, application.RegisterDeviceInput{
+		DeviceID: "dev-1", Platform: "web", PushToken: &token,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dev.PushToken == nil || *dev.PushToken != token {
+		t.Fatalf("unexpected device %+v", dev)
+	}
+	list, err := authSvc.ListDevices(ctx, res.User.TenantID, res.User.ID)
+	if err != nil || len(list) == 0 {
+		t.Fatalf("list devices: err=%v len=%d", err, len(list))
+	}
+	if err := authSvc.UnregisterDevice(ctx, res.User.ID, "dev-1"); err != nil {
+		t.Fatal(err)
+	}
+}

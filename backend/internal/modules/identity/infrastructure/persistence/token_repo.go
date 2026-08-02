@@ -95,3 +95,32 @@ func (r *DeviceRepo) Delete(ctx context.Context, userID, id uuid.UUID) error {
 	}
 	return nil
 }
+
+func (r *DeviceRepo) DeleteByDeviceKey(ctx context.Context, userID uuid.UUID, deviceKey string) error {
+	res := r.db.WithContext(ctx).Where("user_id = ? AND device_id = ?", userID, deviceKey).Delete(&UserDeviceModel{})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return apperrors.ErrNotFound
+	}
+	return nil
+}
+
+func (r *DeviceRepo) ListByUser(ctx context.Context, tenantID, userID uuid.UUID) ([]domain.UserDevice, error) {
+	var rows []UserDeviceModel
+	if err := r.db.WithContext(ctx).
+		Where("tenant_id = ? AND user_id = ?", tenantID, userID).
+		Order("created_at DESC").
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]domain.UserDevice, 0, len(rows))
+	for _, m := range rows {
+		out = append(out, domain.UserDevice{
+			ID: m.ID, TenantID: m.TenantID, UserID: m.UserID, DeviceID: m.DeviceID,
+			Platform: m.Platform, PushToken: m.PushToken, AppVersion: m.AppVersion,
+		})
+	}
+	return out, nil
+}

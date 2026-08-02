@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sfa_app/core/offline/secure_blob_store.dart';
 import 'package:sfa_app/features/sync/data/sync_repository.dart';
 
 final localOutboxProvider = Provider<LocalOutbox>((ref) {
@@ -60,39 +60,35 @@ class OutboxOp {
 }
 
 class LocalOutbox {
-  LocalOutbox(this._sync);
+  LocalOutbox(this._sync, {SecureBlobStore? blobs}) : _blobs = blobs ?? SecureBlobStore();
 
   static const _key = 'sfa_local_outbox_v1';
   final SyncRepository _sync;
+  final SecureBlobStore _blobs;
 
   Future<List<OutboxOp>> list() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
+    final raw = await _blobs.read(_key);
     if (raw == null || raw.isEmpty) return const [];
     final list = jsonDecode(raw) as List<dynamic>;
     return list.map((e) => OutboxOp.fromJson(Map<String, dynamic>.from(e as Map))).toList();
   }
 
   Future<void> enqueue(OutboxOp op) async {
-    final prefs = await SharedPreferences.getInstance();
     final current = await list();
     current.add(op);
-    await prefs.setString(_key, jsonEncode(current.map((e) => e.toJson()).toList()));
+    await _blobs.write(_key, jsonEncode(current.map((e) => e.toJson()).toList()));
   }
 
   Future<void> clear() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_key);
+    await _blobs.remove(_key);
   }
 
   Future<void> removeByOpIds(Iterable<String> ids) async {
     final set = ids.toSet();
     final remaining = (await list()).where((o) => !set.contains(o.opId)).toList();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, jsonEncode(remaining.map((e) => e.toJson()).toList()));
+    await _blobs.write(_key, jsonEncode(remaining.map((e) => e.toJson()).toList()));
   }
 
-  /// Push pending local ops to `/sync/push` and drop acknowledged ones.
   Future<Map<String, dynamic>> flush({String deviceId = 'flutter-web'}) async {
     final pending = await list();
     if (pending.isEmpty) {

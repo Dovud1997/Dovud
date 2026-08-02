@@ -2,7 +2,7 @@
 
 White Label SaaS platform for sales force automation — multi-tenant, offline-capable, enterprise-ready.
 
-**Status:** P7 delivered (Portal hardening · API security · Helm prod) on top of P0–P6
+**Status:** P8 delivered (Admin shell · Devices/push · SMS drivers · Encrypted offline) on top of P0–P7
 
 ## Architecture
 
@@ -110,9 +110,16 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 - Helm `0.7.0`: Secret, Ingress, HPA, NetworkPolicy, `values-prod.yaml`
 - Flutter: portal-only redirect; portal shows receivables + documents
 
-## Next (P8+)
+**P8 — Admin shell / Devices & push / SMS drivers / Encrypted offline**
+- Flutter AdminShell: permission-aware NavigationRail / drawer
+- `POST/GET/DELETE /auth/devices` with push token registration (stub token until FCM)
+- SMS/Push drivers: `log` + `http` webhook; worker resolves push tokens from `user_devices`
+- Offline cache/outbox encrypted via secure key + SharedPreferences
+- Helm chart `0.8.0`
 
-Encrypted Drift/Isar DB · real FCM · richer SMS providers · admin shell polish
+## Next (P9+)
+
+Drift/Isar local DB · real FCM/APNs · tenant provider configs UI · agent bottom nav
 
 ## Locales & themes
 

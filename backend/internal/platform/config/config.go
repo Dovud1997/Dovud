@@ -49,6 +49,8 @@ func (s SecurityConfig) RateLimitWindow() time.Duration {
 
 type NotifyConfig struct {
 	Email EmailConfig `yaml:"email"`
+	SMS   SMSConfig   `yaml:"sms"`
+	Push  PushConfig  `yaml:"push"`
 }
 
 type EmailConfig struct {
@@ -59,6 +61,16 @@ type EmailConfig struct {
 	Password string `yaml:"password"`
 	From     string `yaml:"from"`
 	FileDir  string `yaml:"file_dir"`
+}
+
+type SMSConfig struct {
+	Driver     string `yaml:"driver"` // log | http
+	WebhookURL string `yaml:"webhook_url"`
+}
+
+type PushConfig struct {
+	Driver     string `yaml:"driver"` // log | http (FCM later)
+	WebhookURL string `yaml:"webhook_url"`
 }
 
 type AppConfig struct {
@@ -176,6 +188,18 @@ func Load(path string) (*Config, error) {
 	if v := os.Getenv("SFA_SMTP_FROM"); v != "" {
 		cfg.Notify.Email.From = v
 	}
+	if v := os.Getenv("SFA_SMS_DRIVER"); v != "" {
+		cfg.Notify.SMS.Driver = v
+	}
+	if v := os.Getenv("SFA_SMS_WEBHOOK_URL"); v != "" {
+		cfg.Notify.SMS.WebhookURL = v
+	}
+	if v := os.Getenv("SFA_PUSH_DRIVER"); v != "" {
+		cfg.Notify.Push.Driver = v
+	}
+	if v := os.Getenv("SFA_PUSH_WEBHOOK_URL"); v != "" {
+		cfg.Notify.Push.WebhookURL = v
+	}
 	if v := os.Getenv("SFA_CORS_ORIGINS"); v != "" {
 		cfg.Security.CORSOrigins = v
 	}
@@ -199,6 +223,12 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.Notify.Email.FileDir == "" {
 		cfg.Notify.Email.FileDir = "./storage/mail"
+	}
+	if cfg.Notify.SMS.Driver == "" {
+		cfg.Notify.SMS.Driver = "log"
+	}
+	if cfg.Notify.Push.Driver == "" {
+		cfg.Notify.Push.Driver = "log"
 	}
 	if strings.TrimSpace(cfg.Security.CORSOrigins) == "" {
 		cfg.Security.CORSOrigins = "*"

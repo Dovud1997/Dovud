@@ -38,6 +38,12 @@ notify:
     port: 1025
     from: "noreply@sfa.local"
     file_dir: "./storage/mail"
+  sms:
+    driver: "log" # log | http
+    webhook_url: ""
+  push:
+    driver: "log" # log | http (FCM later)
+    webhook_url: ""
 
 security:
   cors_origins: "*"

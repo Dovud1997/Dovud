@@ -41,5 +41,7 @@ type RefreshTokenRepository interface {
 
 type DeviceRepository interface {
 	Upsert(ctx context.Context, device *UserDevice) error
-	Delete(ctx context.Context, userID, deviceID uuid.UUID) error
+	Delete(ctx context.Context, userID, id uuid.UUID) error
+	DeleteByDeviceKey(ctx context.Context, userID uuid.UUID, deviceKey string) error
+	ListByUser(ctx context.Context, tenantID, userID uuid.UUID) ([]UserDevice, error)
 }

@@ -38,4 +38,6 @@ class AuthUser {
       roles.contains('sales_manager');
 
   bool get isPortal => roles.contains('customer_portal');
+
+  bool can(String permission) => permissions.contains(permission);
 }
