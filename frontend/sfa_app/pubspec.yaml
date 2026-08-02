@@ -25,6 +25,7 @@ dependencies:
   drift: ^2.22.1
   sqlite3_flutter_libs: ^0.5.28
   connectivity_plus: ^6.1.0
+  web_socket_channel: ^3.0.1
   firebase_core: ^3.8.1
   firebase_messaging: ^15.1.6
   drift_flutter: 0.2.0 # pinned: 0.2.7+ needs newer drift than Flutter 3.24 stack

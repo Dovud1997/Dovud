@@ -2,7 +2,7 @@
 
 White Label SaaS platform for sales force automation — multi-tenant, offline-capable, enterprise-ready.
 
-**Status:** P22 delivered (sync locks + offline upload queue) on P0–P21
+**Status:** P23 delivered (WebSocket live channel) on P0–P22
 
 ## Architecture
 
@@ -246,7 +246,13 @@ Without Firebase configured, the app falls back to `stub-push-*` tokens (worker 
 - SyncWorker flushes uploads after push→pull; Documents page queues demo uploads
 - Helm chart `0.22.0`
 
-Still deferred: WebSocket live channel · sync push applying into domain tables · field-level merge UX
+**P23 — WebSocket live channel**
+- `/ws/v1?token=` (Fiber websocket) with ping/pong + `ready`
+- `RecordChange` publishes `sync.invalidate` to tenant peers
+- Flutter `LiveChannel` + Sync center connection status
+- Helm chart `0.23.0`
+
+Still deferred: sync push applying into domain tables · field-level merge UX
 
 ## Locales & themes
 

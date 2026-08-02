@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sfa_app/core/live/live_channel.dart';
 import 'package:sfa_app/core/offline/local_outbox.dart';
 import 'package:sfa_app/core/offline/offline_store.dart';
 import 'package:sfa_app/core/offline/sync_worker.dart';
@@ -106,6 +107,18 @@ class _SyncPageState extends ConsumerState<SyncPage> {
                           : worker.lastSuccessAt == null
                               ? 'waiting'
                               : 'ok · ${worker.lastSuccessAt!.toIso8601String()}',
+                    ),
+                  ),
+                  ListTile(
+                    title: const Text('Live channel'),
+                    subtitle: Text(
+                      ref.watch(liveChannelProvider).connected
+                          ? 'connected'
+                          : (ref.watch(liveChannelProvider).lastError ?? 'disconnected'),
+                    ),
+                    trailing: TextButton(
+                      onPressed: () => ref.read(liveChannelProvider).connect(),
+                      child: const Text('Reconnect'),
                     ),
                   ),
                   ListTile(

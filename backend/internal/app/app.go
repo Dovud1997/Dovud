@@ -61,6 +61,7 @@ import (
 	"github.com/Dovud1997/Dovud/backend/internal/platform/redisx"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/seed"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/storage"
+	"github.com/Dovud1997/Dovud/backend/internal/platform/ws"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 )
@@ -189,6 +190,8 @@ func New(cfgPath string) (*Application, error) {
 	if redisClient != nil {
 		syncSvc.WithLocker(redisClient)
 	}
+	liveHub := ws.NewHub(log)
+	syncSvc.WithLive(liveHub)
 	crmSvc.WithSync(syncSvc)
 	ffSvc.WithSync(syncSvc)
 	ordersSvc.WithSync(syncSvc)
@@ -218,6 +221,7 @@ func New(cfgPath string) (*Application, error) {
 		Audit:         audithttp.NewHandler(auditSvc),
 		Portal:        portalhttp.NewHandler(portalSvc),
 	})
+	ws.Register(router, liveHub, tokenSvc)
 
 	return &Application{Cfg: cfg, Log: log, DB: db, Redis: redisClient, Store: objectStore, Router: router}, nil
 }
