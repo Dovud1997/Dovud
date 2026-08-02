@@ -28,7 +28,8 @@ func toNotification(m NotificationModel) domain.Notification {
 func toDelivery(m NotificationDeliveryModel) domain.NotificationDelivery {
 	return domain.NotificationDelivery{
 		ID: m.ID, NotificationID: m.NotificationID, Channel: m.Channel,
-		Status: m.Status, Error: m.Error, AttemptedAt: m.AttemptedAt,
+		Status: m.Status, Error: m.Error, DeviceID: m.DeviceID, Platform: m.Platform,
+		TokenSuffix: m.TokenSuffix, AttemptedAt: m.AttemptedAt,
 	}
 }
 
@@ -61,7 +62,8 @@ func (r *NotificationRepo) Create(ctx context.Context, n *domain.Notification, d
 		}
 		return tx.Create(&NotificationDeliveryModel{
 			ID: delivery.ID, NotificationID: delivery.NotificationID, Channel: delivery.Channel,
-			Status: delivery.Status, Error: delivery.Error, AttemptedAt: delivery.AttemptedAt,
+			Status: delivery.Status, Error: delivery.Error, DeviceID: delivery.DeviceID,
+			Platform: delivery.Platform, TokenSuffix: delivery.TokenSuffix, AttemptedAt: delivery.AttemptedAt,
 		}).Error
 	})
 }
@@ -154,7 +156,7 @@ func (r *NotificationRepo) ListDeliveries(ctx context.Context, notificationID uu
 func (r *NotificationRepo) UpdateDeliveryStatus(ctx context.Context, notificationID uuid.UUID, channel, status string, errMsg *string) error {
 	now := time.Now().UTC()
 	res := r.db.WithContext(ctx).Model(&NotificationDeliveryModel{}).
-		Where("notification_id = ? AND channel = ?", notificationID, channel).
+		Where("notification_id = ? AND channel = ? AND device_id IS NULL", notificationID, channel).
 		Updates(map[string]any{
 			"status": status, "error": errMsg, "attempted_at": now,
 		})
@@ -168,4 +170,39 @@ func (r *NotificationRepo) UpdateDeliveryStatus(ctx context.Context, notificatio
 		}).Error
 	}
 	return nil
+}
+
+func (r *NotificationRepo) UpsertDeviceDelivery(ctx context.Context, delivery *domain.NotificationDelivery) error {
+	if delivery == nil {
+		return apperrors.ErrValidation
+	}
+	now := time.Now().UTC()
+	if delivery.AttemptedAt.IsZero() {
+		delivery.AttemptedAt = now
+	}
+	q := r.db.WithContext(ctx).Model(&NotificationDeliveryModel{}).
+		Where("notification_id = ? AND channel = ?", delivery.NotificationID, delivery.Channel)
+	if delivery.DeviceID == nil || *delivery.DeviceID == "" {
+		q = q.Where("device_id IS NULL")
+	} else {
+		q = q.Where("device_id = ?", *delivery.DeviceID)
+	}
+	res := q.Updates(map[string]any{
+		"status": delivery.Status, "error": delivery.Error, "attempted_at": delivery.AttemptedAt,
+		"platform": delivery.Platform, "token_suffix": delivery.TokenSuffix,
+	})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected > 0 {
+		return nil
+	}
+	if delivery.ID == uuid.Nil {
+		delivery.ID = uuid.New()
+	}
+	return r.db.WithContext(ctx).Create(&NotificationDeliveryModel{
+		ID: delivery.ID, NotificationID: delivery.NotificationID, Channel: delivery.Channel,
+		Status: delivery.Status, Error: delivery.Error, DeviceID: delivery.DeviceID,
+		Platform: delivery.Platform, TokenSuffix: delivery.TokenSuffix, AttemptedAt: delivery.AttemptedAt,
+	}).Error
 }

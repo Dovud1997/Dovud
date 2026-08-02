@@ -2,7 +2,7 @@
 
 White Label SaaS platform for sales force automation — multi-tenant, offline-capable, enterprise-ready.
 
-**Status:** P13 delivered (Multi-device push fan-out · EntityCache) on top of P0–P12
+**Status:** P14 delivered (Per-device push deliveries) on top of P0–P13
 
 ## Architecture
 
@@ -168,9 +168,16 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 - Flutter `EntityCache` interface; `OfflineStore` implements it (blob backend until Drift)
 - Helm chart `0.13.0`
 
-## Next (P14+)
+**P14 — Per-device push deliveries**
+- `notification_deliveries` gains `device_id` / `platform` / `token_suffix`
+- Worker records one delivery row per device after fan-out
+- API: `GET /notifications/:id/deliveries`
+- Flutter Notifications page expands to show per-device status
+- Helm chart `0.14.0`
 
-Drift/sqflite entity tables · firebase_messaging / APNs client · per-device delivery rows
+## Next (P15+)
+
+Drift/sqflite entity tables · firebase_messaging / APNs client
 
 ## Locales & themes
 

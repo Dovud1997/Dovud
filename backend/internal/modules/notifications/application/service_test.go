@@ -64,3 +64,73 @@ func TestNotificationCreateMarkReadAndCount(t *testing.T) {
 		t.Fatalf("mark all: updated=%d err=%v", updated, err)
 	}
 }
+
+func TestDeviceDeliveryUpsertAndList(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:notify-devices-"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&notifpersist.NotificationModel{}, &notifpersist.NotificationDeliveryModel{}); err != nil {
+		t.Fatal(err)
+	}
+	repo := notifpersist.NewNotificationRepo(db)
+	svc := application.NewService(repo, nil)
+	tenantID := uuid.New()
+	userID := uuid.New()
+	ctx := context.Background()
+
+	n, err := svc.Create(ctx, tenantID, application.CreateInput{
+		UserID: userID, Type: "promo", Title: "Push me", Body: "Hello", Channel: domain.ChannelPush,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dev1, plat1, suf1 := "device-a", "android", "token001"
+	dev2, plat2, suf2 := "device-b", "ios", "token002"
+	if err := repo.UpsertDeviceDelivery(ctx, &domain.NotificationDelivery{
+		NotificationID: n.ID, Channel: domain.ChannelPush, Status: domain.DeliverySent,
+		DeviceID: &dev1, Platform: &plat1, TokenSuffix: &suf1,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	errMsg := "fcm 404"
+	if err := repo.UpsertDeviceDelivery(ctx, &domain.NotificationDelivery{
+		NotificationID: n.ID, Channel: domain.ChannelPush, Status: domain.DeliveryFailed,
+		Error: &errMsg, DeviceID: &dev2, Platform: &plat2, TokenSuffix: &suf2,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// upsert same device again
+	if err := repo.UpsertDeviceDelivery(ctx, &domain.NotificationDelivery{
+		NotificationID: n.ID, Channel: domain.ChannelPush, Status: domain.DeliverySent,
+		DeviceID: &dev2, Platform: &plat2, TokenSuffix: &suf2,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	rows, err := svc.ListDeliveries(ctx, tenantID, n.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var deviceRows int
+	var sawB bool
+	for _, d := range rows {
+		if d.DeviceID != nil && *d.DeviceID != "" {
+			deviceRows++
+			if *d.DeviceID == "device-b" {
+				sawB = true
+				if d.Status != domain.DeliverySent {
+					t.Fatalf("device-b status=%s", d.Status)
+				}
+			}
+		}
+	}
+	if deviceRows != 2 {
+		t.Fatalf("expected 2 device deliveries, got %d (total rows=%d)", deviceRows, len(rows))
+	}
+	if !sawB {
+		t.Fatal("missing device-b delivery")
+	}
+}
