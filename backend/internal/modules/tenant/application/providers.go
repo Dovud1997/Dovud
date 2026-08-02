@@ -68,7 +68,7 @@ func (s *TenantService) UpsertProvider(ctx context.Context, tenantID uuid.UUID, 
 	// merge with existing secrets when blank placeholders are sent
 	if existing, err := s.providers.FindByType(ctx, tenantID, providerType); err == nil {
 		prev, _ := s.decryptConfig(existing.ConfigEnc)
-		for _, secretKey := range []string{"password", "api_key", "webhook_url", "secret"} {
+		for _, secretKey := range []string{"password", "api_key", "webhook_url", "secret", "service_account_json", "private_key"} {
 			v, _ := cfgMap[secretKey].(string)
 			if v == "" || v == "********" {
 				if prev != nil {
@@ -224,10 +224,23 @@ func applyPush(out *config.NotifyConfig, driver string, cfg map[string]any) {
 	}
 	out.Push.Driver = driver
 	out.Push.WebhookURL = str(cfg, "webhook_url", "")
+	out.Push.ProjectID = str(cfg, "project_id", "")
+	out.Push.CredentialsJSON = str(cfg, "service_account_json", "")
+	if out.Push.CredentialsJSON == "" {
+		// allow nested SA fields stored flattened
+		if email := str(cfg, "client_email", ""); email != "" && str(cfg, "private_key", "") != "" {
+			raw, _ := json.Marshal(map[string]string{
+				"client_email": email,
+				"private_key":  str(cfg, "private_key", ""),
+				"project_id":   str(cfg, "project_id", ""),
+			})
+			out.Push.CredentialsJSON = string(raw)
+		}
+	}
 }
 
 func maskSecrets(cfg map[string]any) {
-	for _, k := range []string{"password", "api_key", "secret"} {
+	for _, k := range []string{"password", "api_key", "secret", "service_account_json", "private_key"} {
 		if v, ok := cfg[k].(string); ok && v != "" {
 			cfg[k] = "********"
 		}

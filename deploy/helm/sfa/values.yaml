@@ -59,6 +59,7 @@ env:
   SFA_SMTP_FROM: noreply@sfa.local
   SFA_SMS_DRIVER: log
   SFA_PUSH_DRIVER: log
+  SFA_PUSH_FCM_PROJECT_ID: ""
   SFA_CORS_ORIGINS: https://sfa.local
   SFA_RATE_LIMIT_MAX: "120"
 
@@ -66,6 +67,8 @@ secrets:
   SFA_ACCESS_SECRET: change-me-access-secret-min-32-chars!!
   SFA_REFRESH_SECRET: change-me-refresh-secret-min-32-chars!
   SFA_DATABASE_DSN: ""
+  # Optional: full Firebase service account JSON for push driver=fcm
+  SFA_PUSH_FCM_CREDENTIALS: ""
 
 postgres:
   enabled: false

@@ -2,7 +2,7 @@
 
 White Label SaaS platform for sales force automation — multi-tenant, offline-capable, enterprise-ready.
 
-**Status:** P11 delivered (Domains admin · Logo upload via presign) on top of P0–P10
+**Status:** P12 delivered (FCM HTTP v1 push driver) on top of P0–P11
 
 ## Architecture
 
@@ -138,9 +138,18 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 - Flutter Domains page + Branding studio logo upload (presign → PUT → complete → attach)
 - Helm chart `0.11.0`
 
-## Next (P12+)
+**P12 — FCM HTTP v1 push driver**
+- Push drivers: `log` | `http` | `fcm` (service-account JWT → OAuth → FCM v1 send)
+- Env: `SFA_PUSH_FCM_PROJECT_ID`, `SFA_PUSH_FCM_CREDENTIALS` / `_FILE`
+- Tenant provider config: `project_id` + encrypted `service_account_json`
+- Worker skips `stub-push-*` device tokens
+- Flutter `PushTokenSource` abstraction (stub default; inject real FCM later)
+- Providers admin UI supports FCM fields
+- Helm chart `0.12.0`
 
-Drift/Isar local DB · real FCM/APNs
+## Next (P13+)
+
+Drift/Isar local DB · firebase_messaging / APNs client wiring · multi-device push fan-out
 
 ## Locales & themes
 

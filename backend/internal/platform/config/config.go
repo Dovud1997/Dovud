@@ -69,8 +69,11 @@ type SMSConfig struct {
 }
 
 type PushConfig struct {
-	Driver     string `yaml:"driver"` // log | http (FCM later)
-	WebhookURL string `yaml:"webhook_url"`
+	Driver              string `yaml:"driver"` // log | http | fcm
+	WebhookURL          string `yaml:"webhook_url"`
+	ProjectID           string `yaml:"project_id"`
+	CredentialsJSON     string `yaml:"credentials_json"` // Firebase service account JSON
+	CredentialsFile     string `yaml:"credentials_file"`
 }
 
 type AppConfig struct {
@@ -199,6 +202,15 @@ func Load(path string) (*Config, error) {
 	}
 	if v := os.Getenv("SFA_PUSH_WEBHOOK_URL"); v != "" {
 		cfg.Notify.Push.WebhookURL = v
+	}
+	if v := os.Getenv("SFA_PUSH_FCM_PROJECT_ID"); v != "" {
+		cfg.Notify.Push.ProjectID = v
+	}
+	if v := os.Getenv("SFA_PUSH_FCM_CREDENTIALS"); v != "" {
+		cfg.Notify.Push.CredentialsJSON = v
+	}
+	if v := os.Getenv("SFA_PUSH_FCM_CREDENTIALS_FILE"); v != "" {
+		cfg.Notify.Push.CredentialsFile = v
 	}
 	if v := os.Getenv("SFA_CORS_ORIGINS"); v != "" {
 		cfg.Security.CORSOrigins = v
