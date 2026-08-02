@@ -11,6 +11,7 @@ White-label shell for Android / iOS / Web Admin.
 - Role-aware dashboard shell
 - Admin: Users / Roles / Branding studio / Domains pages
 - Branding logo upload via files presign
+- PushTokenSource abstraction (stub by default; FCM injectable)
 
 ## Run
 

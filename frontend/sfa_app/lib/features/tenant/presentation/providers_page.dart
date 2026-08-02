@@ -23,6 +23,8 @@ class _ProvidersPageState extends ConsumerState<ProvidersPage> {
   final _username = TextEditingController();
   final _password = TextEditingController();
   final _webhook = TextEditingController();
+  final _projectId = TextEditingController();
+  final _serviceAccount = TextEditingController();
   final _testTo = TextEditingController();
   bool _busy = false;
   String? _message;
@@ -35,6 +37,8 @@ class _ProvidersPageState extends ConsumerState<ProvidersPage> {
     _username.dispose();
     _password.dispose();
     _webhook.dispose();
+    _projectId.dispose();
+    _serviceAccount.dispose();
     _testTo.dispose();
     super.dispose();
   }
@@ -43,6 +47,7 @@ class _ProvidersPageState extends ConsumerState<ProvidersPage> {
     setState(() {
       _type = type;
       _password.clear();
+      _serviceAccount.clear();
       final match = rows.where((e) => e['type'] == type).toList();
       if (match.isEmpty) {
         _driver = 'log';
@@ -60,6 +65,9 @@ class _ProvidersPageState extends ConsumerState<ProvidersPage> {
       _port.text = '${cfg['port'] ?? 1025}';
       _username.text = cfg['username']?.toString() ?? '';
       _webhook.text = cfg['webhook_url']?.toString() ?? '';
+      _projectId.text = cfg['project_id']?.toString() ?? '';
+      final sa = cfg['service_account_json']?.toString() ?? '';
+      _serviceAccount.text = sa == '********' ? '' : sa;
     });
   }
 
@@ -78,6 +86,11 @@ class _ProvidersPageState extends ConsumerState<ProvidersPage> {
           'username': _username.text.trim(),
           if (_password.text.isNotEmpty) 'password': _password.text,
         });
+      } else if (_type == 'push' && _driver == 'fcm') {
+        config['project_id'] = _projectId.text.trim();
+        if (_serviceAccount.text.trim().isNotEmpty) {
+          config['service_account_json'] = _serviceAccount.text.trim();
+        }
       } else {
         config['webhook_url'] = _webhook.text.trim();
       }
@@ -119,7 +132,7 @@ class _ProvidersPageState extends ConsumerState<ProvidersPage> {
         Text('Tenant providers', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 8),
         Text(
-          'SMTP / SMS / Push credentials (secrets encrypted at rest).',
+          'SMTP / SMS / Push credentials (secrets encrypted at rest). Push supports log, http webhook, FCM.',
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 16),
@@ -164,6 +177,19 @@ class _ProvidersPageState extends ConsumerState<ProvidersPage> {
                   obscureText: true,
                   decoration: const InputDecoration(labelText: 'Password (leave blank to keep)'),
                 ),
+              ] else if (_type == 'push' && _driver == 'fcm') ...[
+                TextField(
+                  controller: _projectId,
+                  decoration: const InputDecoration(labelText: 'FCM project ID'),
+                ),
+                TextField(
+                  controller: _serviceAccount,
+                  maxLines: 6,
+                  decoration: const InputDecoration(
+                    labelText: 'Service account JSON',
+                    hintText: 'Paste Firebase service account JSON (leave blank to keep)',
+                  ),
+                ),
               ] else
                 TextField(
                   controller: _webhook,
@@ -171,7 +197,9 @@ class _ProvidersPageState extends ConsumerState<ProvidersPage> {
                 ),
               TextField(
                 controller: _testTo,
-                decoration: const InputDecoration(labelText: 'Test recipient'),
+                decoration: InputDecoration(
+                  labelText: _type == 'push' ? 'Test device token' : 'Test recipient',
+                ),
               ),
               const SizedBox(height: 16),
               Wrap(
@@ -206,6 +234,7 @@ class _ProvidersPageState extends ConsumerState<ProvidersPage> {
 
   List<String> _driversForType(String type) {
     if (type == 'smtp') return const ['log', 'file', 'smtp'];
+    if (type == 'push') return const ['log', 'http', 'fcm'];
     return const ['log', 'http'];
   }
 }
