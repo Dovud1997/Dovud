@@ -12,6 +12,7 @@ import (
 	notifyhttp "github.com/Dovud1997/Dovud/backend/internal/modules/notifications/interfaces/http"
 	ordershttp "github.com/Dovud1997/Dovud/backend/internal/modules/orders/interfaces/http"
 	orghttp "github.com/Dovud1997/Dovud/backend/internal/modules/organization/interfaces/http"
+	portalhttp "github.com/Dovud1997/Dovud/backend/internal/modules/portal/interfaces/http"
 	returnshttp "github.com/Dovud1997/Dovud/backend/internal/modules/returns/interfaces/http"
 	synchttp "github.com/Dovud1997/Dovud/backend/internal/modules/sync/interfaces/http"
 	tenanthttp "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/interfaces/http"
@@ -39,6 +40,7 @@ type Deps struct {
 	Analytics     *analytichttp.Handler
 	Documents     *docshttp.Handler
 	Audit         *audithttp.Handler
+	Portal        *portalhttp.Handler
 }
 
 func NewRouter(deps Deps) *fiber.App {
@@ -82,6 +84,9 @@ func NewRouter(deps Deps) *fiber.App {
 	}
 	if deps.Audit != nil {
 		deps.Audit.Register(protected)
+	}
+	if deps.Portal != nil {
+		deps.Portal.Register(protected)
 	}
 
 	return app

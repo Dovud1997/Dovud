@@ -16,12 +16,14 @@ type FileModel struct {
 	Mime        string         `gorm:"size:128;not null"`
 	Size        int64          `gorm:"not null;default:0"`
 	Checksum    *string        `gorm:"size:128"`
-	Status      string         `gorm:"size:32;not null;index"`
-	UploadedBy  *uuid.UUID     `gorm:"type:uuid"`
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	CompletedAt *time.Time
-	DeletedAt   gorm.DeletedAt `gorm:"index"`
+	Status       string         `gorm:"size:32;not null;index"`
+	UploadedBy   *uuid.UUID     `gorm:"type:uuid"`
+	ThumbnailKey *string        `gorm:"size:512"`
+	MetaJSON     *string        `gorm:"type:text"`
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	CompletedAt  *time.Time
+	DeletedAt    gorm.DeletedAt `gorm:"index"`
 }
 
 func (FileModel) TableName() string { return "files" }

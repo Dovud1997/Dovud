@@ -17,6 +17,7 @@ import (
 	notifypersist "github.com/Dovud1997/Dovud/backend/internal/modules/notifications/infrastructure/persistence"
 	orderspersist "github.com/Dovud1997/Dovud/backend/internal/modules/orders/infrastructure/persistence"
 	orgpersist "github.com/Dovud1997/Dovud/backend/internal/modules/organization/infrastructure/persistence"
+	portalpersist "github.com/Dovud1997/Dovud/backend/internal/modules/portal/infrastructure/persistence"
 	returnspersist "github.com/Dovud1997/Dovud/backend/internal/modules/returns/infrastructure/persistence"
 	syncpersist "github.com/Dovud1997/Dovud/backend/internal/modules/sync/infrastructure/persistence"
 	tenantpersist "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/infrastructure/persistence"
@@ -92,6 +93,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&docspersist.DocumentFileModel{},
 		&docspersist.EntityFileModel{},
 		&auditpersist.AuditLogModel{},
+		&portalpersist.CustomerUserModel{},
 	); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}

@@ -41,6 +41,12 @@ services:
     volumes:
       - sfa_minio:/data
 
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
   api:
     build:
       context: ./backend
@@ -73,10 +79,20 @@ services:
       SFA_CONFIG: /app/configs/config.yaml
       SFA_DATABASE_DSN: "host=postgres user=sfa password=sfa dbname=sfa port=5432 sslmode=disable TimeZone=UTC"
       SFA_RABBITMQ_URL: amqp://sfa:sfa@rabbitmq:5672/
+      SFA_MINIO_ENDPOINT: minio:9000
+      SFA_STORAGE_DRIVER: minio
+      SFA_EMAIL_DRIVER: smtp
+      SFA_SMTP_HOST: mailhog
+      SFA_SMTP_PORT: "1025"
+      SFA_SMTP_FROM: noreply@sfa.local
     depends_on:
       postgres:
         condition: service_healthy
       rabbitmq:
+        condition: service_started
+      minio:
+        condition: service_started
+      mailhog:
         condition: service_started
 
   scheduler:

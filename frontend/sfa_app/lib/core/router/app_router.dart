@@ -13,6 +13,7 @@ import 'package:sfa_app/features/finance/presentation/receivables_page.dart';
 import 'package:sfa_app/features/notifications/presentation/notifications_page.dart';
 import 'package:sfa_app/features/orders/presentation/orders_page.dart';
 import 'package:sfa_app/features/organization/presentation/branches_page.dart';
+import 'package:sfa_app/features/portal/presentation/portal_page.dart';
 import 'package:sfa_app/features/returns/presentation/returns_page.dart';
 import 'package:sfa_app/features/sync/presentation/sync_page.dart';
 
@@ -41,6 +42,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/notifications', builder: (context, state) => const NotificationsPage()),
       GoRoute(path: '/documents', builder: (context, state) => const DocumentsPage()),
       GoRoute(path: '/audit', builder: (context, state) => const AuditPage()),
+      GoRoute(path: '/portal', builder: (context, state) => const PortalPage()),
       GoRoute(path: '/sync', builder: (context, state) => const SyncPage()),
     ],
     errorBuilder: (context, state) => Scaffold(

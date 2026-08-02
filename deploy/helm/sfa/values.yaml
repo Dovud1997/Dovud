@@ -40,6 +40,10 @@ env:
   SFA_MINIO_SECRET_KEY: minioadmin
   SFA_MINIO_BUCKET: sfa
   SFA_STORAGE_DRIVER: minio
+  SFA_EMAIL_DRIVER: log
+  SFA_SMTP_HOST: ""
+  SFA_SMTP_PORT: "1025"
+  SFA_SMTP_FROM: noreply@sfa.local
   SFA_ACCESS_SECRET: change-me-access-secret-min-32-chars!!
   SFA_REFRESH_SECRET: change-me-refresh-secret-min-32-chars!
 

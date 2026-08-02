@@ -121,6 +121,11 @@ func (s *LocalStore) Put(ctx context.Context, objectKey, contentType string, bod
 	return err
 }
 
+func (s *LocalStore) Get(ctx context.Context, objectKey string) (io.ReadCloser, error) {
+	_ = ctx
+	return s.Open(objectKey)
+}
+
 func (s *LocalStore) Delete(ctx context.Context, objectKey string) error {
 	_ = ctx
 	path, err := s.pathFor(objectKey)

@@ -19,8 +19,8 @@ func toFile(m FileModel) domain.File {
 	return domain.File{
 		ID: m.ID, TenantID: m.TenantID, Bucket: m.Bucket, ObjectKey: m.ObjectKey,
 		FileName: m.FileName, Mime: m.Mime, Size: m.Size, Checksum: m.Checksum,
-		Status: m.Status, UploadedBy: m.UploadedBy, CreatedAt: m.CreatedAt,
-		UpdatedAt: m.UpdatedAt, CompletedAt: m.CompletedAt,
+		Status: m.Status, UploadedBy: m.UploadedBy, ThumbnailKey: m.ThumbnailKey,
+		MetaJSON: m.MetaJSON, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt, CompletedAt: m.CompletedAt,
 	}
 }
 
@@ -33,8 +33,8 @@ func (r *FileRepo) Create(ctx context.Context, f *domain.File) error {
 	return r.db.WithContext(ctx).Create(&FileModel{
 		ID: f.ID, TenantID: f.TenantID, Bucket: f.Bucket, ObjectKey: f.ObjectKey,
 		FileName: f.FileName, Mime: f.Mime, Size: f.Size, Checksum: f.Checksum,
-		Status: f.Status, UploadedBy: f.UploadedBy, CreatedAt: f.CreatedAt,
-		UpdatedAt: f.UpdatedAt, CompletedAt: f.CompletedAt,
+		Status: f.Status, UploadedBy: f.UploadedBy, ThumbnailKey: f.ThumbnailKey,
+		MetaJSON: f.MetaJSON, CreatedAt: f.CreatedAt, UpdatedAt: f.UpdatedAt, CompletedAt: f.CompletedAt,
 	}).Error
 }
 
@@ -55,6 +55,7 @@ func (r *FileRepo) Update(ctx context.Context, f *domain.File) error {
 	return r.db.WithContext(ctx).Model(&FileModel{}).Where("id = ? AND tenant_id = ?", f.ID, f.TenantID).Updates(map[string]any{
 		"file_name": f.FileName, "mime": f.Mime, "size": f.Size, "checksum": f.Checksum,
 		"status": f.Status, "completed_at": f.CompletedAt, "updated_at": f.UpdatedAt,
+		"thumbnail_key": f.ThumbnailKey, "meta_json": f.MetaJSON,
 	}).Error
 }
 

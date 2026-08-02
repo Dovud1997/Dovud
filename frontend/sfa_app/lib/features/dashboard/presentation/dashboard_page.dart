@@ -138,6 +138,12 @@ class DashboardPage extends ConsumerWidget {
             onTap: () => context.push('/audit'),
           ),
           _ModuleTile(
+            icon: Icons.storefront_outlined,
+            title: 'Customer portal',
+            subtitle: 'Read-only B2B customer view',
+            onTap: () => context.push('/portal'),
+          ),
+          _ModuleTile(
             icon: Icons.sync_outlined,
             title: 'Sync center',
             subtitle: 'Offline outbox · pull / push',

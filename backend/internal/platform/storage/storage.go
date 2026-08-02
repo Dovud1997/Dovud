@@ -14,5 +14,6 @@ type ObjectStore interface {
 	PresignPut(ctx context.Context, objectKey, contentType string, ttl time.Duration) (string, error)
 	PresignGet(ctx context.Context, objectKey string, ttl time.Duration) (string, error)
 	Put(ctx context.Context, objectKey, contentType string, body io.Reader, size int64) error
+	Get(ctx context.Context, objectKey string) (io.ReadCloser, error)
 	Delete(ctx context.Context, objectKey string) error
 }

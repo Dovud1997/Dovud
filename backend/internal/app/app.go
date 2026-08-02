@@ -39,6 +39,9 @@ import (
 	orgapp "github.com/Dovud1997/Dovud/backend/internal/modules/organization/application"
 	orgpersist "github.com/Dovud1997/Dovud/backend/internal/modules/organization/infrastructure/persistence"
 	orghttp "github.com/Dovud1997/Dovud/backend/internal/modules/organization/interfaces/http"
+	portalapp "github.com/Dovud1997/Dovud/backend/internal/modules/portal/application"
+	portalpersist "github.com/Dovud1997/Dovud/backend/internal/modules/portal/infrastructure/persistence"
+	portalhttp "github.com/Dovud1997/Dovud/backend/internal/modules/portal/interfaces/http"
 	returnsapp "github.com/Dovud1997/Dovud/backend/internal/modules/returns/application"
 	returnspersist "github.com/Dovud1997/Dovud/backend/internal/modules/returns/infrastructure/persistence"
 	returnshttp "github.com/Dovud1997/Dovud/backend/internal/modules/returns/interfaces/http"
@@ -151,6 +154,7 @@ func New(cfgPath string) (*Application, error) {
 	fileRepo := docspersist.NewFileRepo(db)
 	documentRepo := docspersist.NewDocumentRepo(db)
 	auditRepo := auditpersist.NewAuditRepo(db)
+	customerUserRepo := portalpersist.NewCustomerUserRepo(db)
 
 	authSvc := identityapp.NewAuthService(userRepo, refreshRepo, deviceRepo, tenantRepo, tokenSvc)
 	rbacSvc := identityapp.NewRBACService(userRepo, roleRepo)
@@ -168,6 +172,7 @@ func New(cfgPath string) (*Application, error) {
 	docsSvc := docsapp.NewService(fileRepo, documentRepo, objectStore, outboxStore)
 	auditSvc := auditapp.NewService(auditRepo, outboxStore)
 	auditWriter := audithttp.NewHTTPWriter(auditSvc, log)
+	portalSvc := portalapp.NewService(customerUserRepo, customerRepo, orderRepo, receivableRepo, documentRepo)
 
 	router := gateway.NewRouter(gateway.Deps{
 		TokenService:  tokenSvc,
@@ -186,6 +191,7 @@ func New(cfgPath string) (*Application, error) {
 		Analytics:     analyticshttp.NewHandler(analyticsSvc),
 		Documents:     docshttp.NewHandler(docsSvc, objectStore),
 		Audit:         audithttp.NewHandler(auditSvc),
+		Portal:        portalhttp.NewHandler(portalSvc),
 	})
 
 	return &Application{Cfg: cfg, Log: log, DB: db, Redis: redisClient, Store: objectStore, Router: router}, nil
@@ -247,6 +253,7 @@ func autoMigrate(db *gorm.DB) error {
 		&docspersist.DocumentFileModel{},
 		&docspersist.EntityFileModel{},
 		&auditpersist.AuditLogModel{},
+		&portalpersist.CustomerUserModel{},
 	)
 }
 

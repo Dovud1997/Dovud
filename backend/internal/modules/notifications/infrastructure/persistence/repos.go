@@ -150,3 +150,22 @@ func (r *NotificationRepo) ListDeliveries(ctx context.Context, notificationID uu
 	}
 	return out, nil
 }
+
+func (r *NotificationRepo) UpdateDeliveryStatus(ctx context.Context, notificationID uuid.UUID, channel, status string, errMsg *string) error {
+	now := time.Now().UTC()
+	res := r.db.WithContext(ctx).Model(&NotificationDeliveryModel{}).
+		Where("notification_id = ? AND channel = ?", notificationID, channel).
+		Updates(map[string]any{
+			"status": status, "error": errMsg, "attempted_at": now,
+		})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return r.db.WithContext(ctx).Create(&NotificationDeliveryModel{
+			ID: uuid.New(), NotificationID: notificationID, Channel: channel,
+			Status: status, Error: errMsg, AttemptedAt: now,
+		}).Error
+	}
+	return nil
+}

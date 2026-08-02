@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS customer_users;
+ALTER TABLE files DROP COLUMN IF EXISTS meta_json;
+ALTER TABLE files DROP COLUMN IF EXISTS thumbnail_key;

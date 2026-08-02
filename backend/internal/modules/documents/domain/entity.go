@@ -18,19 +18,21 @@ const (
 )
 
 type File struct {
-	ID           uuid.UUID
-	TenantID     uuid.UUID
-	Bucket       string
-	ObjectKey    string
-	FileName     string
-	Mime         string
-	Size         int64
-	Checksum     *string
-	Status       string
-	UploadedBy   *uuid.UUID
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	CompletedAt  *time.Time
+	ID            uuid.UUID
+	TenantID      uuid.UUID
+	Bucket        string
+	ObjectKey     string
+	FileName      string
+	Mime          string
+	Size          int64
+	Checksum      *string
+	Status        string
+	UploadedBy    *uuid.UUID
+	ThumbnailKey  *string
+	MetaJSON      *string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	CompletedAt   *time.Time
 }
 
 type Document struct {

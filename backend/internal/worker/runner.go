@@ -1,29 +1,47 @@
 package worker
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
+	docspersist "github.com/Dovud1997/Dovud/backend/internal/modules/documents/infrastructure/persistence"
+	identitypersist "github.com/Dovud1997/Dovud/backend/internal/modules/identity/infrastructure/persistence"
+	notifypersist "github.com/Dovud1997/Dovud/backend/internal/modules/notifications/infrastructure/persistence"
+	notifydomain "github.com/Dovud1997/Dovud/backend/internal/modules/notifications/domain"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/config"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/database"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/logger"
+	"github.com/Dovud1997/Dovud/backend/internal/platform/media"
+	"github.com/Dovud1997/Dovud/backend/internal/platform/notify"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/outbox"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/rabbitmqx"
+	"github.com/Dovud1997/Dovud/backend/internal/platform/storage"
+	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"gorm.io/gorm"
 )
 
 type Runner struct {
-	cfg    *config.Config
-	log    *slog.Logger
-	outbox *outbox.Store
-	mq     *rabbitmqx.Client
-	seen   sync.Map // event_id -> struct{} for consumer idempotency
+	cfg      *config.Config
+	log      *slog.Logger
+	db       *gorm.DB
+	outbox   *outbox.Store
+	mq       *rabbitmqx.Client
+	store    storage.ObjectStore
+	notify   *notify.Router
+	files    *docspersist.FileRepo
+	notifs   *notifypersist.NotificationRepo
+	users    *identitypersist.UserRepo
+	seen     sync.Map
 }
 
 func New(cfgPath string) (*Runner, error) {
@@ -36,35 +54,48 @@ func New(cfgPath string) (*Runner, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := db.AutoMigrate(&outbox.EventModel{}); err != nil {
+	if err := db.AutoMigrate(
+		&outbox.EventModel{},
+		&docspersist.FileModel{},
+		&notifypersist.NotificationModel{},
+		&notifypersist.NotificationDeliveryModel{},
+	); err != nil {
 		return nil, err
 	}
 	mq, err := rabbitmqx.Connect(cfg.RabbitMQ.URL, log)
 	if err != nil {
 		return nil, err
 	}
+	store, err := storage.Open(cfg.Minio, cfg.App.PublicBaseURL, cfg.Auth.AccessSecret, log)
+	if err != nil {
+		log.Warn("worker storage unavailable", "error", err)
+	}
 	return &Runner{
-		cfg: cfg, log: log, outbox: outbox.NewStore(db), mq: mq,
+		cfg: cfg, log: log, db: db, outbox: outbox.NewStore(db), mq: mq,
+		store: store, notify: notify.NewRouter(cfg.Notify, log),
+		files: docspersist.NewFileRepo(db), notifs: notifypersist.NewNotificationRepo(db),
+		users: identitypersist.NewUserRepo(db),
 	}, nil
 }
 
 func (r *Runner) Run() error {
 	defer r.mq.Close()
 
-	if err := r.mq.Consume(rabbitmqx.QueueNotifyEmail, "sfa-worker-email", r.handleNotify); err != nil {
-		return err
+	consumers := []struct {
+		queue string
+		tag   string
+		fn    rabbitmqx.HandlerFunc
+	}{
+		{rabbitmqx.QueueNotifyEmail, "sfa-worker-email", r.handleNotify},
+		{rabbitmqx.QueueNotifyPush, "sfa-worker-push", r.handleNotify},
+		{rabbitmqx.QueueNotifySMS, "sfa-worker-sms", r.handleNotify},
+		{rabbitmqx.QueueMediaProcess, "sfa-worker-media", r.handleMedia},
+		{rabbitmqx.QueueAuditWrite, "sfa-worker-audit", r.handleAudit},
 	}
-	if err := r.mq.Consume(rabbitmqx.QueueNotifyPush, "sfa-worker-push", r.handleNotify); err != nil {
-		return err
-	}
-	if err := r.mq.Consume(rabbitmqx.QueueMediaProcess, "sfa-worker-media", r.handleMedia); err != nil {
-		return err
-	}
-	if err := r.mq.Consume(rabbitmqx.QueueAuditWrite, "sfa-worker-audit", r.handleAudit); err != nil {
-		return err
-	}
-	if err := r.mq.Consume(rabbitmqx.QueueNotifySMS, "sfa-worker-sms", r.handleNotify); err != nil {
-		return err
+	for _, c := range consumers {
+		if err := r.mq.Consume(c.queue, c.tag, c.fn); err != nil {
+			return err
+		}
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -104,11 +135,7 @@ func (r *Runner) relayOutbox(ctx context.Context) error {
 			TenantID: ev.TenantID.String(), AggregateType: ev.AggregateType,
 			AggregateID: aggID, OccurredAt: ev.CreatedAt, Payload: payload,
 		}
-		routingKey := ev.EventType
-		if stringsHasPrefix(ev.EventType, "media.") {
-			routingKey = ev.EventType
-		}
-		if err := r.mq.Publish(ctx, routingKey, env); err != nil {
+		if err := r.mq.Publish(ctx, ev.EventType, env); err != nil {
 			_ = r.outbox.MarkFailed(ctx, ev.ID, time.Minute)
 			return err
 		}
@@ -131,33 +158,97 @@ func (r *Runner) once(eventID string) bool {
 }
 
 func (r *Runner) handleNotify(ctx context.Context, env rabbitmqx.Envelope, d amqp.Delivery) error {
-	_ = ctx
 	_ = d
 	if !r.once(env.EventID) {
-		r.log.Info("skip duplicate notify", "event_id", env.EventID)
 		return nil
 	}
-	r.log.Info("notify handled", "event_type", env.EventType, "tenant_id", env.TenantID, "payload", env.Payload)
+	channel := strings.TrimPrefix(env.EventType, "notification.")
+	if channel == env.EventType {
+		channel = "email"
+	}
+	notifIDStr, _ := env.Payload["notification_id"].(string)
+	userIDStr, _ := env.Payload["user_id"].(string)
+	title, _ := env.Payload["title"].(string)
+	body, _ := env.Payload["body"].(string)
+	to := userIDStr
+	if channel == "email" && userIDStr != "" {
+		if uid, err := uuid.Parse(userIDStr); err == nil {
+			if tid, err := uuid.Parse(env.TenantID); err == nil {
+				if u, err := r.users.FindByID(ctx, tid, uid); err == nil {
+					to = u.Email
+				}
+			}
+		}
+	}
+	msg := notify.Message{To: to, Subject: title, Body: body, Data: env.Payload}
+	err := r.notify.Send(ctx, channel, msg)
+	status := notifydomain.DeliverySent
+	var errMsg *string
+	if err != nil {
+		status = notifydomain.DeliveryFailed
+		s := err.Error()
+		errMsg = &s
+		r.log.Error("notify send failed", "channel", channel, "error", err)
+	}
+	if notifIDStr != "" {
+		if nid, perr := uuid.Parse(notifIDStr); perr == nil {
+			_ = r.notifs.UpdateDeliveryStatus(ctx, nid, channel, status, errMsg)
+		}
+	}
+	if err != nil {
+		return err
+	}
+	r.log.Info("notify delivered", "channel", channel, "to", to, "event_id", env.EventID)
 	return nil
 }
 
 func (r *Runner) handleMedia(ctx context.Context, env rabbitmqx.Envelope, d amqp.Delivery) error {
-	_ = ctx
 	_ = d
 	if !r.once(env.EventID) {
-		r.log.Info("skip duplicate media", "event_id", env.EventID)
 		return nil
 	}
-	// Placeholder for thumbnail generation / virus scan hooks.
+	if r.store == nil {
+		r.log.Warn("skip media: no storage")
+		return nil
+	}
 	mime, _ := env.Payload["mime"].(string)
 	objectKey, _ := env.Payload["object_key"].(string)
-	r.log.Info("media process handled",
-		"event_type", env.EventType,
-		"tenant_id", env.TenantID,
-		"mime", mime,
-		"object_key", objectKey,
-		"thumbnails", "queued",
-	)
+	fileIDStr, _ := env.Payload["file_id"].(string)
+	if objectKey == "" || !media.IsImageMIME(mime) {
+		r.log.Info("media skip (not image)", "mime", mime, "object_key", objectKey)
+		return nil
+	}
+	rc, err := r.store.Get(ctx, objectKey)
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+	raw, err := io.ReadAll(rc)
+	if err != nil {
+		return err
+	}
+	thumb, err := media.GenerateJPEGThumbnail(bytes.NewReader(raw), mime)
+	if err != nil {
+		r.log.Warn("thumbnail generate failed", "error", err)
+		return nil
+	}
+	thumbKey := media.ThumbnailObjectKey(objectKey)
+	if err := r.store.Put(ctx, thumbKey, "image/jpeg", bytes.NewReader(thumb), int64(len(thumb))); err != nil {
+		return err
+	}
+	if fileIDStr != "" && env.TenantID != "" {
+		if fid, err := uuid.Parse(fileIDStr); err == nil {
+			if tid, err := uuid.Parse(env.TenantID); err == nil {
+				if f, err := r.files.FindByID(ctx, tid, fid); err == nil {
+					f.ThumbnailKey = &thumbKey
+					meta := `{"thumbnail":"ready","width_max":256}`
+					f.MetaJSON = &meta
+					_ = r.files.Update(ctx, f)
+				}
+			}
+		}
+	}
+	r.log.Info("thumbnail ready", "object_key", objectKey, "thumb_key", thumbKey, "bytes", len(thumb))
 	return nil
 }
 
@@ -167,10 +258,6 @@ func (r *Runner) handleAudit(ctx context.Context, env rabbitmqx.Envelope, d amqp
 	if !r.once(env.EventID) {
 		return nil
 	}
-	r.log.Info("audit event consumed", "event_type", env.EventType, "tenant_id", env.TenantID, "payload", env.Payload)
+	r.log.Info("audit event consumed", "event_type", env.EventType, "tenant_id", env.TenantID)
 	return nil
-}
-
-func stringsHasPrefix(s, prefix string) bool {
-	return len(s) >= len(prefix) && s[:len(prefix)] == prefix
 }

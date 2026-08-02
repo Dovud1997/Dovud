@@ -2,7 +2,7 @@
 
 White Label SaaS platform for sales force automation — multi-tenant, offline-capable, enterprise-ready.
 
-**Status:** P5 delivered (Audit · Scheduler · Notify outbox · Flutter local outbox) on top of P0–P4
+**Status:** P6 delivered (Notify providers · Thumbnails · Customer portal · Offline cache) on top of P0–P5
 
 ## Architecture
 
@@ -36,6 +36,7 @@ API: `http://localhost:8080/api/v1`
 | Tenant code | `demo` |
 | Admin | `admin@demo.local` / `Admin123!` |
 | Agent | `agent@demo.local` / `Agent123!` |
+| Portal | `portal@demo.local` / `Portal123!` |
 
 ### Smoke
 
@@ -91,9 +92,18 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 - Compose/Helm: `scheduler` service
 - Flutter: local SharedPreferences outbox + flush via `/sync/push`; Audit logs screen
 
+**P6 — Notify providers / Thumbnails / Portal / Offline cache**
+- Platform: email providers (`log` / `file` / `smtp`), SMS & push log stubs; MailHog in Compose
+- Worker: real notify delivery + delivery status updates; JPEG/PNG → 256px thumbnails
+- Module: `portal` — read-only customer summary/orders/receivables/documents (`portal:read`)
+- Migration `000007_portal_media` (`thumbnail_key`, `customer_users`)
+- Demo portal user linked to demo customer
+- Flutter: Customer portal screen; OfflineStore entity cache + pullAndCache in Sync center
+- Helm chart `0.6.0`
+
 ## Next (P6+)
 
-Encrypted local DB (Isar/Drift) · real FCM/email/SMS providers · image thumbnails · customer portal
+Encrypted Drift/Isar DB · real FCM · richer SMS providers · portal hardening / scoped documents
 
 ## Locales & themes
 

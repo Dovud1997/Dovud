@@ -27,6 +27,8 @@ import (
 	orderspersist "github.com/Dovud1997/Dovud/backend/internal/modules/orders/infrastructure/persistence"
 	orgdomain "github.com/Dovud1997/Dovud/backend/internal/modules/organization/domain"
 	orgpersist "github.com/Dovud1997/Dovud/backend/internal/modules/organization/infrastructure/persistence"
+	portaldomain "github.com/Dovud1997/Dovud/backend/internal/modules/portal/domain"
+	portalpersist "github.com/Dovud1997/Dovud/backend/internal/modules/portal/infrastructure/persistence"
 	returnsdomain "github.com/Dovud1997/Dovud/backend/internal/modules/returns/domain"
 	returnspersist "github.com/Dovud1997/Dovud/backend/internal/modules/returns/infrastructure/persistence"
 	tenantdomain "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/domain"
@@ -55,6 +57,7 @@ var permissionCodes = []string{
 	"analytics:read",
 	"audit:read",
 	"sync:use",
+	"portal:read",
 }
 
 func Run(ctx context.Context, db *gorm.DB, log *slog.Logger) error {
@@ -107,6 +110,10 @@ func Run(ctx context.Context, db *gorm.DB, log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	portalRole, err := ensureRole(ctx, roleRepo, &tenant.ID, "customer_portal", "Customer Portal", true)
+	if err != nil {
+		return err
+	}
 
 	allPermIDs, err := roleRepo.PermissionIDsByCodes(ctx, permissionCodes)
 	if err != nil {
@@ -125,6 +132,15 @@ func Run(ctx context.Context, db *gorm.DB, log *slog.Logger) error {
 		return err
 	}
 	if err := roleRepo.SetPermissions(ctx, agentRole.ID, agentPerms); err != nil {
+		return err
+	}
+	portalPerms, err := roleRepo.PermissionIDsByCodes(ctx, []string{
+		"portal:read", "orders:read", "finance:read", "documents:read", "notifications:read",
+	})
+	if err != nil {
+		return err
+	}
+	if err := roleRepo.SetPermissions(ctx, portalRole.ID, portalPerms); err != nil {
 		return err
 	}
 
@@ -162,6 +178,24 @@ func Run(ctx context.Context, db *gorm.DB, log *slog.Logger) error {
 			return err
 		}
 		log.Info("seeded agent user", "email", agent.Email, "password", "Agent123!")
+	}
+
+	if _, err := userRepo.FindByEmail(ctx, tenant.ID, "portal@demo.local"); err != nil {
+		hash, err := auth.HashPassword("Portal123!")
+		if err != nil {
+			return err
+		}
+		portalUser := &identitydomain.User{
+			TenantID: tenant.ID, Email: "portal@demo.local", PasswordHash: hash,
+			FullName: "Demo Portal Customer", Status: "active", Locale: "ru", ThemePreference: "system", Version: 1,
+		}
+		if err := userRepo.Create(ctx, portalUser); err != nil {
+			return err
+		}
+		if err := userRepo.ReplaceRoles(ctx, portalUser.ID, []uuid.UUID{portalRole.ID}); err != nil {
+			return err
+		}
+		log.Info("seeded portal user", "email", portalUser.Email, "password", "Portal123!")
 	}
 
 	if err := seedBusinessDemo(ctx, db, tenant.ID, log); err != nil {
@@ -491,6 +525,19 @@ func seedP3Demo(ctx context.Context, db *gorm.DB, tenantID, customerID, productI
 			return err
 		}
 		log.Info("seeded document", "title", "Welcome pack")
+	}
+
+	portalUser, err := identitypersist.NewUserRepo(db).FindByEmail(ctx, tenantID, "portal@demo.local")
+	if err == nil {
+		linkRepo := portalpersist.NewCustomerUserRepo(db)
+		if _, err := linkRepo.FindByUser(ctx, tenantID, portalUser.ID); err != nil {
+			if err := linkRepo.Upsert(ctx, &portaldomain.CustomerUser{
+				TenantID: tenantID, UserID: portalUser.ID, CustomerID: customerID,
+			}); err != nil {
+				return err
+			}
+			log.Info("seeded portal customer link", "customer_id", customerID)
+		}
 	}
 
 	return nil

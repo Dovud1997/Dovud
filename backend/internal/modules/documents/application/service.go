@@ -30,19 +30,21 @@ func NewService(files domain.FileRepository, docs domain.DocumentRepository, sto
 }
 
 type FileDTO struct {
-	ID          uuid.UUID  `json:"id"`
-	FileName    string     `json:"file_name"`
-	Mime        string     `json:"mime"`
-	Size        int64      `json:"size"`
-	Status      string     `json:"status"`
-	Bucket      string     `json:"bucket"`
-	ObjectKey   string     `json:"object_key"`
-	Checksum    *string    `json:"checksum,omitempty"`
-	UploadedBy  *uuid.UUID `json:"uploaded_by,omitempty"`
-	DownloadURL string     `json:"download_url,omitempty"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	CompletedAt *time.Time `json:"completed_at,omitempty"`
+	ID           uuid.UUID  `json:"id"`
+	FileName     string     `json:"file_name"`
+	Mime         string     `json:"mime"`
+	Size         int64      `json:"size"`
+	Status       string     `json:"status"`
+	Bucket       string     `json:"bucket"`
+	ObjectKey    string     `json:"object_key"`
+	Checksum     *string    `json:"checksum,omitempty"`
+	UploadedBy   *uuid.UUID `json:"uploaded_by,omitempty"`
+	ThumbnailKey *string    `json:"thumbnail_key,omitempty"`
+	ThumbnailURL string     `json:"thumbnail_url,omitempty"`
+	DownloadURL  string     `json:"download_url,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+	CompletedAt  *time.Time `json:"completed_at,omitempty"`
 }
 
 type PresignResult struct {
@@ -96,11 +98,12 @@ type AttachFileInput struct {
 	Role   string    `json:"role"`
 }
 
-func toFileDTO(f domain.File, downloadURL string) FileDTO {
+func toFileDTO(f domain.File, downloadURL, thumbURL string) FileDTO {
 	return FileDTO{
 		ID: f.ID, FileName: f.FileName, Mime: f.Mime, Size: f.Size, Status: f.Status,
 		Bucket: f.Bucket, ObjectKey: f.ObjectKey, Checksum: f.Checksum, UploadedBy: f.UploadedBy,
-		DownloadURL: downloadURL, CreatedAt: f.CreatedAt, UpdatedAt: f.UpdatedAt, CompletedAt: f.CompletedAt,
+		ThumbnailKey: f.ThumbnailKey, ThumbnailURL: thumbURL, DownloadURL: downloadURL,
+		CreatedAt: f.CreatedAt, UpdatedAt: f.UpdatedAt, CompletedAt: f.CompletedAt,
 	}
 }
 
@@ -159,7 +162,7 @@ func (s *Service) CompleteUpload(ctx context.Context, tenantID, fileID uuid.UUID
 		return nil, err
 	}
 	if f.Status == domain.FileStatusReady {
-		dto := toFileDTO(*f, "")
+		dto := toFileDTO(*f, "", "")
 		return &dto, nil
 	}
 	if in.Size != nil {
@@ -184,9 +187,20 @@ func (s *Service) CompleteUpload(ctx context.Context, tenantID, fileID uuid.UUID
 		})
 	}
 
-	downloadURL, _ := s.store.PresignGet(ctx, f.ObjectKey, s.presignTTL)
-	dto := toFileDTO(*f, downloadURL)
+	downloadURL, thumbURL := s.urls(ctx, *f)
+	dto := toFileDTO(*f, downloadURL, thumbURL)
 	return &dto, nil
+}
+
+func (s *Service) urls(ctx context.Context, f domain.File) (downloadURL, thumbURL string) {
+	if s.store == nil || f.Status != domain.FileStatusReady {
+		return "", ""
+	}
+	downloadURL, _ = s.store.PresignGet(ctx, f.ObjectKey, s.presignTTL)
+	if f.ThumbnailKey != nil && *f.ThumbnailKey != "" {
+		thumbURL, _ = s.store.PresignGet(ctx, *f.ThumbnailKey, s.presignTTL)
+	}
+	return downloadURL, thumbURL
 }
 
 func (s *Service) GetFile(ctx context.Context, tenantID, fileID uuid.UUID) (*FileDTO, error) {
@@ -194,11 +208,8 @@ func (s *Service) GetFile(ctx context.Context, tenantID, fileID uuid.UUID) (*Fil
 	if err != nil {
 		return nil, err
 	}
-	var downloadURL string
-	if f.Status == domain.FileStatusReady && s.store != nil {
-		downloadURL, _ = s.store.PresignGet(ctx, f.ObjectKey, s.presignTTL)
-	}
-	dto := toFileDTO(*f, downloadURL)
+	downloadURL, thumbURL := s.urls(ctx, *f)
+	dto := toFileDTO(*f, downloadURL, thumbURL)
 	return &dto, nil
 }
 
@@ -222,7 +233,7 @@ func (s *Service) ListFiles(ctx context.Context, tenantID uuid.UUID, page, perPa
 	}
 	out := make([]FileDTO, 0, len(rows))
 	for _, f := range rows {
-		out = append(out, toFileDTO(f, ""))
+		out = append(out, toFileDTO(f, "", ""))
 	}
 	return out, total, nil
 }
@@ -258,7 +269,7 @@ func (s *Service) GetDocument(ctx context.Context, tenantID, id uuid.UUID) (*Doc
 	}
 	fileDTOs := make([]FileDTO, 0, len(files))
 	for _, f := range files {
-		fileDTOs = append(fileDTOs, toFileDTO(f, ""))
+		fileDTOs = append(fileDTOs, toFileDTO(f, "", ""))
 	}
 	dto := toDocDTO(*d, fileDTOs)
 	return &dto, nil

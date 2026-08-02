@@ -30,3 +30,11 @@ minio:
 
 rabbitmq:
   url: "amqp://sfa:sfa@localhost:5672/"
+
+notify:
+  email:
+    driver: "file" # log | file | smtp
+    host: "localhost"
+    port: 1025
+    from: "noreply@sfa.local"
+    file_dir: "./storage/mail"

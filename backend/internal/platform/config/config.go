@@ -15,6 +15,21 @@ type Config struct {
 	Auth     AuthConfig     `yaml:"auth"`
 	Minio    MinioConfig    `yaml:"minio"`
 	RabbitMQ RabbitMQConfig `yaml:"rabbitmq"`
+	Notify   NotifyConfig   `yaml:"notify"`
+}
+
+type NotifyConfig struct {
+	Email EmailConfig `yaml:"email"`
+}
+
+type EmailConfig struct {
+	Driver   string `yaml:"driver"` // log | file | smtp
+	Host     string `yaml:"host"`
+	Port     int    `yaml:"port"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+	From     string `yaml:"from"`
+	FileDir  string `yaml:"file_dir"`
 }
 
 type AppConfig struct {
@@ -115,6 +130,38 @@ func Load(path string) (*Config, error) {
 	}
 	if v := os.Getenv("SFA_STORAGE_DRIVER"); v != "" {
 		cfg.Minio.Driver = v
+	}
+	if v := os.Getenv("SFA_EMAIL_DRIVER"); v != "" {
+		cfg.Notify.Email.Driver = v
+	}
+	if v := os.Getenv("SFA_SMTP_HOST"); v != "" {
+		cfg.Notify.Email.Host = v
+	}
+	if v := os.Getenv("SFA_SMTP_PORT"); v != "" {
+		var port int
+		_, _ = fmt.Sscanf(v, "%d", &port)
+		if port > 0 {
+			cfg.Notify.Email.Port = port
+		}
+	}
+	if v := os.Getenv("SFA_SMTP_FROM"); v != "" {
+		cfg.Notify.Email.From = v
+	}
+
+	if cfg.Notify.Email.Driver == "" {
+		cfg.Notify.Email.Driver = "log"
+	}
+	if cfg.Notify.Email.Port == 0 {
+		cfg.Notify.Email.Port = 1025
+	}
+	if cfg.Notify.Email.Host == "" {
+		cfg.Notify.Email.Host = "localhost"
+	}
+	if cfg.Notify.Email.From == "" {
+		cfg.Notify.Email.From = "noreply@sfa.local"
+	}
+	if cfg.Notify.Email.FileDir == "" {
+		cfg.Notify.Email.FileDir = "./storage/mail"
 	}
 
 	return &cfg, nil

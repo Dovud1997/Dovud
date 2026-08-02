@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sfa_app/core/offline/local_outbox.dart';
+import 'package:sfa_app/core/offline/offline_store.dart';
 import 'package:sfa_app/features/sync/data/sync_repository.dart';
 
 final syncStatusProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) {
@@ -9,6 +10,14 @@ final syncStatusProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref
 
 final outboxCountProvider = FutureProvider.autoDispose<int>((ref) async {
   return (await ref.watch(localOutboxProvider).list()).length;
+});
+
+final cachedProductsProvider = FutureProvider.autoDispose<int>((ref) async {
+  return (await ref.watch(offlineStoreProvider).listEntities('product')).length;
+});
+
+final cachedCustomersProvider = FutureProvider.autoDispose<int>((ref) async {
+  return (await ref.watch(offlineStoreProvider).listEntities('customer')).length;
 });
 
 class SyncPage extends ConsumerStatefulWidget {
@@ -29,6 +38,8 @@ class _SyncPageState extends ConsumerState<SyncPage> {
       await action();
       ref.invalidate(syncStatusProvider);
       ref.invalidate(outboxCountProvider);
+      ref.invalidate(cachedProductsProvider);
+      ref.invalidate(cachedCustomersProvider);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
@@ -42,6 +53,8 @@ class _SyncPageState extends ConsumerState<SyncPage> {
   Widget build(BuildContext context) {
     final async = ref.watch(syncStatusProvider);
     final outboxCount = ref.watch(outboxCountProvider).valueOrNull ?? 0;
+    final productsCached = ref.watch(cachedProductsProvider).valueOrNull ?? 0;
+    final customersCached = ref.watch(cachedCustomersProvider).valueOrNull ?? 0;
     return Scaffold(
       appBar: AppBar(title: const Text('Sync center')),
       body: Column(
@@ -76,6 +89,12 @@ class _SyncPageState extends ConsumerState<SyncPage> {
                     title: const Text('Local outbox'),
                     subtitle: Text('$outboxCount pending ops'),
                   ),
+                  ListTile(
+                    title: const Text('Offline cache'),
+                    subtitle: Text(
+                      'products=$productsCached · customers=$customersCached (SharedPreferences; Drift deferred)',
+                    ),
+                  ),
                   if (_lastPullSummary.isNotEmpty)
                     ListTile(
                       title: const Text('Last pull'),
@@ -104,13 +123,14 @@ class _SyncPageState extends ConsumerState<SyncPage> {
                         onPressed: _busy
                             ? null
                             : () => _run(() async {
-                                  final cursor = s['last_pull_cursor']?.toString() ?? '';
-                                  final res = await ref.read(syncRepositoryProvider).pull(cursor: cursor);
-                                  final changes = (res['changes'] as List?)?.length ?? 0;
-                                  setState(() => _lastPullSummary = '$changes changes');
+                                  final res = await ref.read(offlineStoreProvider).pullAndCache();
+                                  setState(() {
+                                    _lastPullSummary =
+                                        '${res['changes']} changes · cursor ${res['cursor'] ?? '—'}';
+                                  });
                                 }),
                         icon: const Icon(Icons.download_outlined),
-                        label: const Text('Pull'),
+                        label: const Text('Pull & cache'),
                       ),
                       OutlinedButton.icon(
                         onPressed: _busy
@@ -134,7 +154,7 @@ class _SyncPageState extends ConsumerState<SyncPage> {
                         onPressed: _busy
                             ? null
                             : () => _run(() async {
-                                  final res = await ref.read(localOutboxProvider).flush();
+                                  final res = await ref.read(offlineStoreProvider).flushOutbox();
                                   setState(() {
                                     _lastFlushSummary =
                                         'acked ${res['acked']}, conflicts ${res['conflicts']}, remaining ${res['remaining']}';

@@ -18,4 +18,5 @@ type NotificationRepository interface {
 	MarkAllRead(ctx context.Context, tenantID, userID uuid.UUID) (int64, error)
 	UnreadCount(ctx context.Context, tenantID, userID uuid.UUID) (int64, error)
 	ListDeliveries(ctx context.Context, notificationID uuid.UUID) ([]NotificationDelivery, error)
+	UpdateDeliveryStatus(ctx context.Context, notificationID uuid.UUID, channel, status string, errMsg *string) error
 }
