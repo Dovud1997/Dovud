@@ -2,7 +2,7 @@
 
 White Label SaaS platform for sales force automation — multi-tenant, offline-capable, enterprise-ready.
 
-**Status:** P6 delivered (Notify providers · Thumbnails · Customer portal · Offline cache) on top of P0–P5
+**Status:** P7 delivered (Portal hardening · API security · Helm prod) on top of P0–P6
 
 ## Architecture
 
@@ -101,9 +101,18 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 - Flutter: Customer portal screen; OfflineStore entity cache + pullAndCache in Sync center
 - Helm chart `0.6.0`
 
-## Next (P6+)
+**P7 — Portal hardening / API security / Helm prod**
+- Portal documents scoped by `documents.customer_id`; summary counts only linked customer docs
+- Portal RBAC tightened to `portal:read` + `notifications:read` (no tenant-wide orders/finance/docs)
+- Admin link APIs: `GET/POST /portal/links`, `DELETE /portal/links/:user_id` (`portal:write`)
+- API hardening: security headers, body limit, CORS config, in-memory rate limit, login lockout (memory/Redis)
+- Migration `000008_portal_hardening`
+- Helm `0.7.0`: Secret, Ingress, HPA, NetworkPolicy, `values-prod.yaml`
+- Flutter: portal-only redirect; portal shows receivables + documents
 
-Encrypted Drift/Isar DB · real FCM · richer SMS providers · portal hardening / scoped documents
+## Next (P8+)
+
+Encrypted Drift/Isar DB · real FCM · richer SMS providers · admin shell polish
 
 ## Locales & themes
 

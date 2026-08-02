@@ -38,3 +38,12 @@ notify:
     port: 1025
     from: "noreply@sfa.local"
     file_dir: "./storage/mail"
+
+security:
+  cors_origins: "*"
+  body_limit_mb: 10
+  rate_limit_max: 120
+  rate_limit_window_sec: 60
+  login_max_attempts: 5
+  login_window_minutes: 15
+  login_lockout_minutes: 15

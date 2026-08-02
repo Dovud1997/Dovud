@@ -20,6 +20,7 @@ type DocumentRepository interface {
 	Update(ctx context.Context, d *Document) error
 	SoftDelete(ctx context.Context, tenantID, id uuid.UUID) error
 	List(ctx context.Context, tenantID uuid.UUID, page, perPage int) ([]Document, int64, error)
+	ListByCustomer(ctx context.Context, tenantID, customerID uuid.UUID, page, perPage int) ([]Document, int64, error)
 	AttachFile(ctx context.Context, documentID, fileID uuid.UUID, role string) error
 	ListFiles(ctx context.Context, documentID uuid.UUID) ([]File, error)
 }

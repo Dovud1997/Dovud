@@ -7,6 +7,7 @@ import (
 	crmdomain "github.com/Dovud1997/Dovud/backend/internal/modules/crm/domain"
 	docsdomain "github.com/Dovud1997/Dovud/backend/internal/modules/documents/domain"
 	financedomain "github.com/Dovud1997/Dovud/backend/internal/modules/finance/domain"
+	identitydomain "github.com/Dovud1997/Dovud/backend/internal/modules/identity/domain"
 	ordersdomain "github.com/Dovud1997/Dovud/backend/internal/modules/orders/domain"
 	"github.com/Dovud1997/Dovud/backend/internal/modules/portal/domain"
 	apperrors "github.com/Dovud1997/Dovud/backend/internal/platform/errors"
@@ -19,6 +20,7 @@ type Service struct {
 	orders      ordersdomain.OrderRepository
 	receivables financedomain.ReceivableRepository
 	documents   docsdomain.DocumentRepository
+	users       identitydomain.UserRepository
 }
 
 func NewService(
@@ -27,10 +29,11 @@ func NewService(
 	orders ordersdomain.OrderRepository,
 	receivables financedomain.ReceivableRepository,
 	documents docsdomain.DocumentRepository,
+	users identitydomain.UserRepository,
 ) *Service {
 	return &Service{
 		links: links, customers: customers, orders: orders,
-		receivables: receivables, documents: documents,
+		receivables: receivables, documents: documents, users: users,
 	}
 }
 
@@ -58,6 +61,18 @@ type DocumentDTO struct {
 	DocType   string    `json:"doc_type"`
 	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+type LinkDTO struct {
+	ID         uuid.UUID `json:"id"`
+	UserID     uuid.UUID `json:"user_id"`
+	CustomerID uuid.UUID `json:"customer_id"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+type LinkInput struct {
+	UserID     uuid.UUID `json:"user_id"`
+	CustomerID uuid.UUID `json:"customer_id"`
 }
 
 func (s *Service) resolveCustomer(ctx context.Context, tenantID, userID uuid.UUID) (*crmdomain.Customer, error) {
@@ -95,8 +110,7 @@ func (s *Service) Summary(ctx context.Context, tenantID, userID uuid.UUID) (*dom
 			balance += r.Balance
 		}
 	}
-	docs, totalDocs, err := s.documents.List(ctx, tenantID, 1, 1)
-	_ = docs
+	_, totalDocs, err := s.documents.ListByCustomer(ctx, tenantID, cust.ID, 1, 1)
 	if err != nil {
 		totalDocs = 0
 	}
@@ -146,10 +160,11 @@ func (s *Service) Receivables(ctx context.Context, tenantID, userID uuid.UUID, p
 }
 
 func (s *Service) Documents(ctx context.Context, tenantID, userID uuid.UUID, page, perPage int) ([]DocumentDTO, int64, error) {
-	if _, err := s.resolveCustomer(ctx, tenantID, userID); err != nil {
+	cust, err := s.resolveCustomer(ctx, tenantID, userID)
+	if err != nil {
 		return nil, 0, err
 	}
-	rows, total, err := s.documents.List(ctx, tenantID, page, perPage)
+	rows, total, err := s.documents.ListByCustomer(ctx, tenantID, cust.ID, page, perPage)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -160,4 +175,50 @@ func (s *Service) Documents(ctx context.Context, tenantID, userID uuid.UUID, pag
 		})
 	}
 	return out, total, nil
+}
+
+func (s *Service) LinkUser(ctx context.Context, tenantID uuid.UUID, in LinkInput) (*LinkDTO, error) {
+	if in.UserID == uuid.Nil || in.CustomerID == uuid.Nil {
+		return nil, apperrors.ErrValidation
+	}
+	if _, err := s.users.FindByID(ctx, tenantID, in.UserID); err != nil {
+		return nil, apperrors.ErrNotFound
+	}
+	if _, err := s.customers.FindByID(ctx, tenantID, in.CustomerID); err != nil {
+		return nil, apperrors.ErrNotFound
+	}
+	link := &domain.CustomerUser{
+		TenantID: tenantID, UserID: in.UserID, CustomerID: in.CustomerID,
+	}
+	if err := s.links.Upsert(ctx, link); err != nil {
+		return nil, err
+	}
+	stored, err := s.links.FindByUser(ctx, tenantID, in.UserID)
+	if err != nil {
+		return nil, err
+	}
+	return &LinkDTO{
+		ID: stored.ID, UserID: stored.UserID, CustomerID: stored.CustomerID, CreatedAt: stored.CreatedAt,
+	}, nil
+}
+
+func (s *Service) UnlinkUser(ctx context.Context, tenantID, userID uuid.UUID) error {
+	if userID == uuid.Nil {
+		return apperrors.ErrValidation
+	}
+	return s.links.DeleteByUser(ctx, tenantID, userID)
+}
+
+func (s *Service) ListLinks(ctx context.Context, tenantID uuid.UUID, customerID *uuid.UUID) ([]LinkDTO, error) {
+	rows, err := s.links.List(ctx, tenantID, customerID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]LinkDTO, 0, len(rows))
+	for _, l := range rows {
+		out = append(out, LinkDTO{
+			ID: l.ID, UserID: l.UserID, CustomerID: l.CustomerID, CreatedAt: l.CreatedAt,
+		})
+	}
+	return out, nil
 }

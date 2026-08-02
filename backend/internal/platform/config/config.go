@@ -3,6 +3,8 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -16,6 +18,33 @@ type Config struct {
 	Minio    MinioConfig    `yaml:"minio"`
 	RabbitMQ RabbitMQConfig `yaml:"rabbitmq"`
 	Notify   NotifyConfig   `yaml:"notify"`
+	Security SecurityConfig `yaml:"security"`
+}
+
+type SecurityConfig struct {
+	CORSOrigins           string `yaml:"cors_origins"`
+	BodyLimitMB           int    `yaml:"body_limit_mb"`
+	RateLimitMax          int    `yaml:"rate_limit_max"`
+	RateLimitWindowSec    int    `yaml:"rate_limit_window_sec"`
+	LoginMaxAttempts      int    `yaml:"login_max_attempts"`
+	LoginWindowMinutes    int    `yaml:"login_window_minutes"`
+	LoginLockoutMinutes   int    `yaml:"login_lockout_minutes"`
+}
+
+func (s SecurityConfig) BodyLimitBytes() int {
+	mb := s.BodyLimitMB
+	if mb <= 0 {
+		mb = 10
+	}
+	return mb * 1024 * 1024
+}
+
+func (s SecurityConfig) RateLimitWindow() time.Duration {
+	sec := s.RateLimitWindowSec
+	if sec <= 0 {
+		sec = 60
+	}
+	return time.Duration(sec) * time.Second
 }
 
 type NotifyConfig struct {
@@ -50,11 +79,11 @@ type RedisConfig struct {
 }
 
 type AuthConfig struct {
-	AccessSecret      string `yaml:"access_secret"`
-	RefreshSecret     string `yaml:"refresh_secret"`
-	AccessTTLMinutes  int    `yaml:"access_ttl_minutes"`
-	RefreshTTLDays    int    `yaml:"refresh_ttl_days"`
-	Issuer            string `yaml:"issuer"`
+	AccessSecret     string `yaml:"access_secret"`
+	RefreshSecret    string `yaml:"refresh_secret"`
+	AccessTTLMinutes int    `yaml:"access_ttl_minutes"`
+	RefreshTTLDays   int    `yaml:"refresh_ttl_days"`
+	Issuer           string `yaml:"issuer"`
 }
 
 func (a AuthConfig) AccessTTL() time.Duration {
@@ -147,6 +176,14 @@ func Load(path string) (*Config, error) {
 	if v := os.Getenv("SFA_SMTP_FROM"); v != "" {
 		cfg.Notify.Email.From = v
 	}
+	if v := os.Getenv("SFA_CORS_ORIGINS"); v != "" {
+		cfg.Security.CORSOrigins = v
+	}
+	if v := os.Getenv("SFA_RATE_LIMIT_MAX"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.Security.RateLimitMax = n
+		}
+	}
 
 	if cfg.Notify.Email.Driver == "" {
 		cfg.Notify.Email.Driver = "log"
@@ -162,6 +199,27 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.Notify.Email.FileDir == "" {
 		cfg.Notify.Email.FileDir = "./storage/mail"
+	}
+	if strings.TrimSpace(cfg.Security.CORSOrigins) == "" {
+		cfg.Security.CORSOrigins = "*"
+	}
+	if cfg.Security.BodyLimitMB <= 0 {
+		cfg.Security.BodyLimitMB = 10
+	}
+	if cfg.Security.RateLimitMax <= 0 {
+		cfg.Security.RateLimitMax = 120
+	}
+	if cfg.Security.RateLimitWindowSec <= 0 {
+		cfg.Security.RateLimitWindowSec = 60
+	}
+	if cfg.Security.LoginMaxAttempts <= 0 {
+		cfg.Security.LoginMaxAttempts = 5
+	}
+	if cfg.Security.LoginWindowMinutes <= 0 {
+		cfg.Security.LoginWindowMinutes = 15
+	}
+	if cfg.Security.LoginLockoutMinutes <= 0 {
+		cfg.Security.LoginLockoutMinutes = 15
 	}
 
 	return &cfg, nil

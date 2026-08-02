@@ -36,4 +36,6 @@ class AuthUser {
       roles.contains('tenant_owner') ||
       roles.contains('tenant_admin') ||
       roles.contains('sales_manager');
+
+  bool get isPortal => roles.contains('customer_portal');
 }

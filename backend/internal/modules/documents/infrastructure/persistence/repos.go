@@ -94,7 +94,8 @@ func NewDocumentRepo(db *gorm.DB) *DocumentRepo { return &DocumentRepo{db: db} }
 
 func toDoc(m DocumentModel) domain.Document {
 	return domain.Document{
-		ID: m.ID, TenantID: m.TenantID, Title: m.Title, Description: m.Description,
+		ID: m.ID, TenantID: m.TenantID, CustomerID: m.CustomerID,
+		Title: m.Title, Description: m.Description,
 		DocType: m.DocType, Status: m.Status, CreatedBy: m.CreatedBy,
 		CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
@@ -107,7 +108,8 @@ func (r *DocumentRepo) Create(ctx context.Context, d *domain.Document) error {
 	now := time.Now().UTC()
 	d.CreatedAt, d.UpdatedAt = now, now
 	return r.db.WithContext(ctx).Create(&DocumentModel{
-		ID: d.ID, TenantID: d.TenantID, Title: d.Title, Description: d.Description,
+		ID: d.ID, TenantID: d.TenantID, CustomerID: d.CustomerID,
+		Title: d.Title, Description: d.Description,
 		DocType: d.DocType, Status: d.Status, CreatedBy: d.CreatedBy,
 		CreatedAt: d.CreatedAt, UpdatedAt: d.UpdatedAt,
 	}).Error
@@ -128,7 +130,7 @@ func (r *DocumentRepo) FindByID(ctx context.Context, tenantID, id uuid.UUID) (*d
 func (r *DocumentRepo) Update(ctx context.Context, d *domain.Document) error {
 	d.UpdatedAt = time.Now().UTC()
 	return r.db.WithContext(ctx).Model(&DocumentModel{}).Where("id = ? AND tenant_id = ?", d.ID, d.TenantID).Updates(map[string]any{
-		"title": d.Title, "description": d.Description, "doc_type": d.DocType,
+		"customer_id": d.CustomerID, "title": d.Title, "description": d.Description, "doc_type": d.DocType,
 		"status": d.Status, "updated_at": d.UpdatedAt,
 	}).Error
 }
@@ -148,6 +150,25 @@ func (r *DocumentRepo) List(ctx context.Context, tenantID uuid.UUID, page, perPa
 	page, perPage = paging.Normalize(page, perPage)
 	var total int64
 	q := r.db.WithContext(ctx).Model(&DocumentModel{}).Where("tenant_id = ?", tenantID)
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var rows []DocumentModel
+	if err := q.Order("created_at DESC").Offset(paging.Offset(page, perPage)).Limit(perPage).Find(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	out := make([]domain.Document, 0, len(rows))
+	for _, m := range rows {
+		out = append(out, toDoc(m))
+	}
+	return out, total, nil
+}
+
+func (r *DocumentRepo) ListByCustomer(ctx context.Context, tenantID, customerID uuid.UUID, page, perPage int) ([]domain.Document, int64, error) {
+	page, perPage = paging.Normalize(page, perPage)
+	var total int64
+	q := r.db.WithContext(ctx).Model(&DocumentModel{}).
+		Where("tenant_id = ? AND customer_id = ?", tenantID, customerID)
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}

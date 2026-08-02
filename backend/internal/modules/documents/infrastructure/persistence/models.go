@@ -31,6 +31,7 @@ func (FileModel) TableName() string { return "files" }
 type DocumentModel struct {
 	ID          uuid.UUID      `gorm:"type:uuid;primaryKey"`
 	TenantID    uuid.UUID      `gorm:"type:uuid;not null;index"`
+	CustomerID  *uuid.UUID     `gorm:"type:uuid;index"`
 	Title       string         `gorm:"size:255;not null"`
 	Description *string        `gorm:"type:text"`
 	DocType     string         `gorm:"size:64;not null;default:general"`

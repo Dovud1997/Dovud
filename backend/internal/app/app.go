@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/Dovud1997/Dovud/backend/internal/gateway"
 	analyticsapp "github.com/Dovud1997/Dovud/backend/internal/modules/analytics/application"
@@ -156,7 +157,16 @@ func New(cfgPath string) (*Application, error) {
 	auditRepo := auditpersist.NewAuditRepo(db)
 	customerUserRepo := portalpersist.NewCustomerUserRepo(db)
 
-	authSvc := identityapp.NewAuthService(userRepo, refreshRepo, deviceRepo, tenantRepo, tokenSvc)
+	lockCfg := auth.LockoutConfig{
+		MaxAttempts: cfg.Security.LoginMaxAttempts,
+		Window:      time.Duration(cfg.Security.LoginWindowMinutes) * time.Minute,
+		LockFor:     time.Duration(cfg.Security.LoginLockoutMinutes) * time.Minute,
+	}
+	var loginGuard auth.LoginGuard = auth.NewMemoryLoginGuard(lockCfg)
+	if redisClient != nil {
+		loginGuard = auth.NewRedisLoginGuard(redisClient, lockCfg)
+	}
+	authSvc := identityapp.NewAuthService(userRepo, refreshRepo, deviceRepo, tenantRepo, tokenSvc).WithLoginGuard(loginGuard)
 	rbacSvc := identityapp.NewRBACService(userRepo, roleRepo)
 	tenantSvc := tenantapp.NewTenantService(tenantRepo, brandingRepo, domainRepo)
 	orgSvc := orgapp.NewService(companyRepo, branchRepo, warehouseRepo)
@@ -172,9 +182,10 @@ func New(cfgPath string) (*Application, error) {
 	docsSvc := docsapp.NewService(fileRepo, documentRepo, objectStore, outboxStore)
 	auditSvc := auditapp.NewService(auditRepo, outboxStore)
 	auditWriter := audithttp.NewHTTPWriter(auditSvc, log)
-	portalSvc := portalapp.NewService(customerUserRepo, customerRepo, orderRepo, receivableRepo, documentRepo)
+	portalSvc := portalapp.NewService(customerUserRepo, customerRepo, orderRepo, receivableRepo, documentRepo, userRepo)
 
 	router := gateway.NewRouter(gateway.Deps{
+		Config:        cfg,
 		TokenService:  tokenSvc,
 		AuditWriter:   auditWriter,
 		Identity:      identityhttp.NewHandler(authSvc, rbacSvc),

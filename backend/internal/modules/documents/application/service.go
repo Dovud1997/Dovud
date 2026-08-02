@@ -58,6 +58,7 @@ type PresignResult struct {
 
 type DocumentDTO struct {
 	ID          uuid.UUID  `json:"id"`
+	CustomerID  *uuid.UUID `json:"customer_id,omitempty"`
 	Title       string     `json:"title"`
 	Description *string    `json:"description,omitempty"`
 	DocType     string     `json:"doc_type"`
@@ -81,9 +82,10 @@ type CompleteInput struct {
 }
 
 type CreateDocumentInput struct {
-	Title       string  `json:"title"`
-	Description *string `json:"description"`
-	DocType     string  `json:"doc_type"`
+	Title       string     `json:"title"`
+	Description *string    `json:"description"`
+	DocType     string     `json:"doc_type"`
+	CustomerID  *uuid.UUID `json:"customer_id"`
 }
 
 type UpdateDocumentInput struct {
@@ -109,7 +111,8 @@ func toFileDTO(f domain.File, downloadURL, thumbURL string) FileDTO {
 
 func toDocDTO(d domain.Document, files []FileDTO) DocumentDTO {
 	return DocumentDTO{
-		ID: d.ID, Title: d.Title, Description: d.Description, DocType: d.DocType, Status: d.Status,
+		ID: d.ID, CustomerID: d.CustomerID, Title: d.Title, Description: d.Description,
+		DocType: d.DocType, Status: d.Status,
 		CreatedBy: d.CreatedBy, CreatedAt: d.CreatedAt, UpdatedAt: d.UpdatedAt, Files: files,
 	}
 }
@@ -248,7 +251,7 @@ func (s *Service) CreateDocument(ctx context.Context, tenantID, userID uuid.UUID
 		docType = "general"
 	}
 	d := &domain.Document{
-		TenantID: tenantID, Title: title, Description: in.Description,
+		TenantID: tenantID, CustomerID: in.CustomerID, Title: title, Description: in.Description,
 		DocType: docType, Status: domain.DocStatusActive, CreatedBy: &userID,
 	}
 	if err := s.docs.Create(ctx, d); err != nil {

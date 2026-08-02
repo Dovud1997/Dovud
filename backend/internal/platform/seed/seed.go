@@ -58,6 +58,7 @@ var permissionCodes = []string{
 	"audit:read",
 	"sync:use",
 	"portal:read",
+	"portal:write",
 }
 
 func Run(ctx context.Context, db *gorm.DB, log *slog.Logger) error {
@@ -135,7 +136,7 @@ func Run(ctx context.Context, db *gorm.DB, log *slog.Logger) error {
 		return err
 	}
 	portalPerms, err := roleRepo.PermissionIDsByCodes(ctx, []string{
-		"portal:read", "orders:read", "finance:read", "documents:read", "notifications:read",
+		"portal:read", "notifications:read",
 	})
 	if err != nil {
 		return err
@@ -517,14 +518,18 @@ func seedP3Demo(ctx context.Context, db *gorm.DB, tenantID, customerID, productI
 		if admin != nil {
 			createdBy = &admin.ID
 		}
-		desc := "Seeded demo document"
+		desc := "Seeded demo document for portal customer"
+		cid := customerID
 		if err := docRepo.Create(ctx, &documentsdomain.Document{
-			TenantID: tenantID, Title: "Welcome pack", Description: &desc,
+			TenantID: tenantID, CustomerID: &cid, Title: "Welcome pack", Description: &desc,
 			DocType: "general", Status: documentsdomain.DocStatusActive, CreatedBy: createdBy,
 		}); err != nil {
 			return err
 		}
-		log.Info("seeded document", "title", "Welcome pack")
+		log.Info("seeded document", "title", "Welcome pack", "customer_id", customerID)
+	} else if docs[0].CustomerID == nil {
+		docs[0].CustomerID = &customerID
+		_ = docRepo.Update(ctx, &docs[0])
 	}
 
 	portalUser, err := identitypersist.NewUserRepo(db).FindByEmail(ctx, tenantID, "portal@demo.local")

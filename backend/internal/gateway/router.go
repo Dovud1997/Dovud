@@ -1,6 +1,8 @@
 package gateway
 
 import (
+	"strings"
+
 	analytichttp "github.com/Dovud1997/Dovud/backend/internal/modules/analytics/interfaces/http"
 	audithttp "github.com/Dovud1997/Dovud/backend/internal/modules/audit/interfaces/http"
 	cataloghttp "github.com/Dovud1997/Dovud/backend/internal/modules/catalog/interfaces/http"
@@ -17,6 +19,7 @@ import (
 	synchttp "github.com/Dovud1997/Dovud/backend/internal/modules/sync/interfaces/http"
 	tenanthttp "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/interfaces/http"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/auth"
+	"github.com/Dovud1997/Dovud/backend/internal/platform/config"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/httpx"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -24,6 +27,7 @@ import (
 )
 
 type Deps struct {
+	Config        *config.Config
 	TokenService  *auth.TokenService
 	AuditWriter   httpx.AuditWriter
 	Identity      *identityhttp.Handler
@@ -44,16 +48,39 @@ type Deps struct {
 }
 
 func NewRouter(deps Deps) *fiber.App {
+	sec := config.SecurityConfig{}
+	if deps.Config != nil {
+		sec = deps.Config.Security
+	}
+	if sec.CORSOrigins == "" {
+		sec.CORSOrigins = "*"
+	}
+	if sec.RateLimitMax <= 0 {
+		sec.RateLimitMax = 120
+	}
+	if sec.RateLimitWindowSec <= 0 {
+		sec.RateLimitWindowSec = 60
+	}
+
 	app := fiber.New(fiber.Config{
-		AppName:      "SFA API",
-		ErrorHandler: errorHandler,
+		AppName:       "SFA API",
+		ErrorHandler:  errorHandler,
+		BodyLimit:     sec.BodyLimitBytes(),
+		ServerHeader:  "",
+		DisableStartupMessage: false,
 	})
 
 	app.Use(recover.New())
 	app.Use(httpx.RequestIDMiddleware())
+	app.Use(httpx.SecurityHeadersMiddleware())
+	app.Use(httpx.MemoryRateLimiter(sec.RateLimitMax, sec.RateLimitWindow()))
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",
+		AllowOrigins: sec.CORSOrigins,
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization, X-Tenant-ID, X-Request-ID, Idempotency-Key, Accept-Language",
+		AllowMethods: strings.Join([]string{
+			fiber.MethodGet, fiber.MethodPost, fiber.MethodPut, fiber.MethodPatch,
+			fiber.MethodDelete, fiber.MethodOptions, fiber.MethodHead,
+		}, ","),
 	}))
 
 	v1 := app.Group("/api/v1")

@@ -1,0 +1,55 @@
+# Production overlay — use with: helm upgrade --install sfa ./deploy/helm/sfa -f values.yaml -f values-prod.yaml
+api:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+worker:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+
+scheduler:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+ingress:
+  enabled: true
+  className: nginx
+  host: sfa.example.com
+  tls: true
+  tlsSecretName: sfa-tls
+
+networkPolicy:
+  enabled: true
+
+config:
+  env: production
+  publicBaseUrl: https://sfa.example.com
+
+env:
+  SFA_CORS_ORIGINS: https://sfa.example.com
+  SFA_EMAIL_DRIVER: smtp
+  SFA_RATE_LIMIT_MAX: "120"
+  SFA_STORAGE_DRIVER: minio

@@ -20,6 +20,7 @@ type AuthService struct {
 	devices   domain.DeviceRepository
 	tenants   tenantdomain.TenantRepository
 	tokenSvc  *auth.TokenService
+	lockout   auth.LoginGuard
 }
 
 func NewAuthService(
@@ -30,6 +31,11 @@ func NewAuthService(
 	tokenSvc *auth.TokenService,
 ) *AuthService {
 	return &AuthService{users: users, tokens: tokens, devices: devices, tenants: tenants, tokenSvc: tokenSvc}
+}
+
+func (s *AuthService) WithLoginGuard(g auth.LoginGuard) *AuthService {
+	s.lockout = g
+	return s
 }
 
 type LoginInput struct {
@@ -74,9 +80,23 @@ func (s *AuthService) Login(ctx context.Context, in LoginInput) (*AuthResult, er
 		return nil, apperrors.ErrValidation
 	}
 
+	lockKey := in.TenantCode + ":" + in.Email
+	if s.lockout != nil {
+		if err := s.lockout.Check(ctx, lockKey); err != nil {
+			return nil, err
+		}
+	}
+
+	fail := func() (*AuthResult, error) {
+		if s.lockout != nil {
+			_ = s.lockout.Fail(ctx, lockKey)
+		}
+		return nil, apperrors.ErrInvalidCreds
+	}
+
 	tenant, err := s.tenants.FindByCode(ctx, in.TenantCode)
 	if err != nil {
-		return nil, apperrors.ErrInvalidCreds
+		return fail()
 	}
 	if tenant.Status != "active" {
 		return nil, apperrors.New("TENANT_INACTIVE", "Tenant is inactive", 403)
@@ -84,15 +104,18 @@ func (s *AuthService) Login(ctx context.Context, in LoginInput) (*AuthResult, er
 
 	user, err := s.users.FindByEmail(ctx, tenant.ID, in.Email)
 	if err != nil {
-		return nil, apperrors.ErrInvalidCreds
+		return fail()
 	}
 	if !user.IsActive() {
-		return nil, apperrors.ErrInvalidCreds
+		return fail()
 	}
 
 	ok, err := auth.VerifyPassword(user.PasswordHash, in.Password)
 	if err != nil || !ok {
-		return nil, apperrors.ErrInvalidCreds
+		return fail()
+	}
+	if s.lockout != nil {
+		_ = s.lockout.Success(ctx, lockKey)
 	}
 
 	return s.issueSession(ctx, user, in.DeviceID, in.Platform)

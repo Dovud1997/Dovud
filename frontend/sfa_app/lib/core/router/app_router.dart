@@ -26,7 +26,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (session.loading) return null;
       final loggingIn = state.matchedLocation == '/login';
       if (!session.isAuthenticated && !loggingIn) return '/login';
-      if (session.isAuthenticated && loggingIn) return '/dashboard';
+      final isPortal = session.session?.user.isPortal ?? false;
+      if (session.isAuthenticated && loggingIn) {
+        return isPortal ? '/portal' : '/dashboard';
+      }
+      if (session.isAuthenticated && isPortal) {
+        final loc = state.matchedLocation;
+        if (loc != '/portal' && loc != '/login') return '/portal';
+      }
       return null;
     },
     routes: [

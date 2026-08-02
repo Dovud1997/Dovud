@@ -6,7 +6,9 @@ metadata:
     {{- include "sfa.labels" . | nindent 4 }}
     app.kubernetes.io/component: api
 spec:
+  {{- if not .Values.api.hpa.enabled }}
   replicas: {{ .Values.api.replicas }}
+  {{- end }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "sfa.name" . }}
@@ -30,6 +32,25 @@ spec:
             {{- end }}
             - name: SFA_HTTP_ADDR
               value: ":{{ .Values.api.port }}"
+            {{- if .Values.secret.create }}
+            - name: SFA_ACCESS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (printf "%s-secrets" (include "sfa.fullname" .)) .Values.secret.name }}
+                  key: SFA_ACCESS_SECRET
+            - name: SFA_REFRESH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (printf "%s-secrets" (include "sfa.fullname" .)) .Values.secret.name }}
+                  key: SFA_REFRESH_SECRET
+            {{- if .Values.secrets.SFA_DATABASE_DSN }}
+            - name: SFA_DATABASE_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (printf "%s-secrets" (include "sfa.fullname" .)) .Values.secret.name }}
+                  key: SFA_DATABASE_DSN
+            {{- end }}
+            {{- end }}
           readinessProbe:
             httpGet:
               path: /api/v1/public/health

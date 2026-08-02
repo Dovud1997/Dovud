@@ -8,6 +8,11 @@ api:
   replicas: 1
   port: 8080
   resources: {}
+  hpa:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
 
 worker:
   replicas: 1
@@ -26,6 +31,14 @@ ingress:
   className: ""
   host: sfa.local
   tls: false
+  tlsSecretName: sfa-tls
+
+networkPolicy:
+  enabled: false
+
+secret:
+  create: true
+  name: ""
 
 config:
   env: production
@@ -44,8 +57,13 @@ env:
   SFA_SMTP_HOST: ""
   SFA_SMTP_PORT: "1025"
   SFA_SMTP_FROM: noreply@sfa.local
+  SFA_CORS_ORIGINS: https://sfa.local
+  SFA_RATE_LIMIT_MAX: "120"
+
+secrets:
   SFA_ACCESS_SECRET: change-me-access-secret-min-32-chars!!
   SFA_REFRESH_SECRET: change-me-refresh-secret-min-32-chars!
+  SFA_DATABASE_DSN: ""
 
 postgres:
   enabled: false

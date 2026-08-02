@@ -38,6 +38,7 @@ type File struct {
 type Document struct {
 	ID          uuid.UUID
 	TenantID    uuid.UUID
+	CustomerID  *uuid.UUID
 	Title       string
 	Description *string
 	DocType     string

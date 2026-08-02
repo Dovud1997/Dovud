@@ -25,4 +25,10 @@ class PortalRepository {
     final data = envelope['data'] as List<dynamic>? ?? const [];
     return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
+
+  Future<List<Map<String, dynamic>>> documents() async {
+    final envelope = await _api.get('/portal/documents', query: {'page': 1, 'per_page': 50});
+    final data = envelope['data'] as List<dynamic>? ?? const [];
+    return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
 }
