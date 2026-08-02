@@ -18,11 +18,16 @@ type DeviceLocker interface {
 	Unlock(ctx context.Context, key, token string) error
 }
 
+type LiveNotifier interface {
+	BroadcastSyncInvalidate(tenantID uuid.UUID, entityTypes ...string)
+}
+
 type Service struct {
 	devices   domain.DeviceRepository
 	changelog domain.ChangeLogRepository
 	conflicts domain.ConflictRepository
 	locker    DeviceLocker
+	live      LiveNotifier
 }
 
 func NewService(devices domain.DeviceRepository, changelog domain.ChangeLogRepository, conflicts domain.ConflictRepository) *Service {
@@ -31,6 +36,11 @@ func NewService(devices domain.DeviceRepository, changelog domain.ChangeLogRepos
 
 func (s *Service) WithLocker(locker DeviceLocker) *Service {
 	s.locker = locker
+	return s
+}
+
+func (s *Service) WithLive(live LiveNotifier) *Service {
+	s.live = live
 	return s
 }
 
@@ -459,8 +469,14 @@ func (s *Service) RecordChange(ctx context.Context, tenantID uuid.UUID, entityTy
 		}
 		raw = string(b)
 	}
-	return s.changelog.Append(ctx, &domain.SyncChange{
+	if err := s.changelog.Append(ctx, &domain.SyncChange{
 		TenantID: tenantID, EntityType: entityType, EntityID: entityID,
 		Version: version, Deleted: deleted, PayloadJSON: raw,
-	})
+	}); err != nil {
+		return err
+	}
+	if s.live != nil {
+		s.live.BroadcastSyncInvalidate(tenantID, entityType)
+	}
+	return nil
 }

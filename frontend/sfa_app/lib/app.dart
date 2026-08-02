@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sfa_app/core/live/live_channel.dart';
 import 'package:sfa_app/core/offline/sync_worker.dart';
 import 'package:sfa_app/core/router/app_router.dart';
 import 'package:sfa_app/core/theme/brand_theme.dart';
@@ -14,9 +15,10 @@ class SfaApp extends ConsumerWidget {
     final router = ref.watch(appRouterProvider);
     final branding = session.branding ?? Branding.fallback();
 
-    // Keep background sync worker alive for authenticated sessions.
+    // Keep background sync worker + live channel alive for authenticated sessions.
     if (session.isAuthenticated) {
       ref.watch(syncWorkerProvider);
+      ref.watch(liveChannelProvider);
     }
 
     if (session.loading && session.session == null) {
