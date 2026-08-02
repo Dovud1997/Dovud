@@ -20,4 +20,10 @@ class NotificationsRepository {
     final data = envelope['data'] as Map<String, dynamic>? ?? const {};
     return (data['count'] as num?)?.toInt() ?? 0;
   }
+
+  Future<List<Map<String, dynamic>>> listDeliveries(String notificationId) async {
+    final envelope = await _api.get('/notifications/$notificationId/deliveries');
+    final data = envelope['data'] as List<dynamic>? ?? const [];
+    return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
 }

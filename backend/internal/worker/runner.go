@@ -187,7 +187,7 @@ func (r *Runner) handleNotify(ctx context.Context, env rabbitmqx.Envelope, d amq
 	title, _ := env.Payload["title"].(string)
 	body, _ := env.Payload["body"].(string)
 	to := userIDStr
-	var pushTokens []string
+	var pushTargets []PushTarget
 	if userIDStr != "" {
 		if uid, err := uuid.Parse(userIDStr); err == nil {
 			if tid, err := uuid.Parse(env.TenantID); err == nil {
@@ -198,7 +198,7 @@ func (r *Runner) handleNotify(ctx context.Context, env rabbitmqx.Envelope, d amq
 					}
 				case "push":
 					if devices, err := r.devices.ListByUser(ctx, tid, uid); err == nil {
-						pushTokens = CollectPushTokens(devices)
+						pushTargets = CollectPushTargets(devices)
 					}
 				}
 			}
@@ -216,32 +216,83 @@ func (r *Runner) handleNotify(ctx context.Context, env rabbitmqx.Envelope, d amq
 	var err error
 	status := notifydomain.DeliverySent
 	var errMsg *string
+	var notifID uuid.UUID
+	if notifIDStr != "" {
+		notifID, _ = uuid.Parse(notifIDStr)
+	}
+
 	if channel == "push" {
-		if len(pushTokens) == 0 {
+		if len(pushTargets) == 0 {
 			// No real device tokens (stubs only / none): keep single log-friendly send to user id.
 			err = sender.Send(ctx, channel, msg)
+			if notifID != uuid.Nil {
+				st := notifydomain.DeliverySent
+				var em *string
+				if err != nil {
+					st = notifydomain.DeliveryFailed
+					s := err.Error()
+					em = &s
+				}
+				_ = r.notifs.UpdateDeliveryStatus(ctx, notifID, channel, st, em)
+			}
 		} else {
-			sent, failed, ferr := FanoutPush(ctx, sender, pushTokens, msg)
+			results, sent, failed, ferr := FanoutPush(ctx, sender, pushTargets, msg)
 			err = ferr
-			r.log.Info("push fan-out", "sent", sent, "failed", failed, "devices", len(pushTokens), "event_id", env.EventID)
-			to = strings.Join(pushTokens, ",")
+			r.log.Info("push fan-out", "sent", sent, "failed", failed, "devices", len(pushTargets), "event_id", env.EventID)
+			tokens := make([]string, 0, len(pushTargets))
+			for _, t := range pushTargets {
+				tokens = append(tokens, t.Token)
+			}
+			to = strings.Join(tokens, ",")
+			if notifID != uuid.Nil {
+				for _, res := range results {
+					st := notifydomain.DeliverySent
+					var em *string
+					if res.Err != nil {
+						st = notifydomain.DeliveryFailed
+						s := res.Err.Error()
+						em = &s
+					}
+					devID := res.Target.DeviceID
+					plat := res.Target.Platform
+					suf := TokenSuffix(res.Target.Token)
+					_ = r.notifs.UpsertDeviceDelivery(ctx, &notifydomain.NotificationDelivery{
+						NotificationID: notifID,
+						Channel:        channel,
+						Status:         st,
+						Error:          em,
+						DeviceID:       &devID,
+						Platform:       &plat,
+						TokenSuffix:    &suf,
+					})
+				}
+				agg := notifydomain.DeliverySent
+				var aggErr *string
+				if err != nil {
+					agg = notifydomain.DeliveryFailed
+					s := err.Error()
+					aggErr = &s
+				}
+				_ = r.notifs.UpdateDeliveryStatus(ctx, notifID, channel, agg, aggErr)
+			}
 		}
 	} else {
 		err = sender.Send(ctx, channel, msg)
+		if err != nil {
+			status = notifydomain.DeliveryFailed
+			s := err.Error()
+			errMsg = &s
+			r.log.Error("notify send failed", "channel", channel, "error", err)
+		}
+		if notifID != uuid.Nil {
+			_ = r.notifs.UpdateDeliveryStatus(ctx, notifID, channel, status, errMsg)
+		}
 	}
 
 	if err != nil {
-		status = notifydomain.DeliveryFailed
-		s := err.Error()
-		errMsg = &s
-		r.log.Error("notify send failed", "channel", channel, "error", err)
-	}
-	if notifIDStr != "" {
-		if nid, perr := uuid.Parse(notifIDStr); perr == nil {
-			_ = r.notifs.UpdateDeliveryStatus(ctx, nid, channel, status, errMsg)
+		if channel == "push" {
+			r.log.Error("notify send failed", "channel", channel, "error", err)
 		}
-	}
-	if err != nil {
 		return err
 	}
 	r.log.Info("notify delivered", "channel", channel, "to", to, "event_id", env.EventID)

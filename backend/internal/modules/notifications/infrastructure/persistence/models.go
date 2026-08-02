@@ -27,6 +27,9 @@ type NotificationDeliveryModel struct {
 	Channel        string    `gorm:"size:32;not null"`
 	Status         string    `gorm:"size:32;not null;index"`
 	Error          *string   `gorm:"type:text"`
+	DeviceID       *string   `gorm:"size:128;index"`
+	Platform       *string   `gorm:"size:32"`
+	TokenSuffix    *string   `gorm:"size:16"`
 	AttemptedAt    time.Time `gorm:"not null"`
 }
 

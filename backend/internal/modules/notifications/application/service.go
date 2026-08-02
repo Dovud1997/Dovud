@@ -38,6 +38,9 @@ type DeliveryDTO struct {
 	Channel        string    `json:"channel"`
 	Status         string    `json:"status"`
 	Error          *string   `json:"error,omitempty"`
+	DeviceID       *string   `json:"device_id,omitempty"`
+	Platform       *string   `json:"platform,omitempty"`
+	TokenSuffix    *string   `json:"token_suffix,omitempty"`
 	AttemptedAt    time.Time `json:"attempted_at"`
 }
 
@@ -60,7 +63,8 @@ func toDTO(n domain.Notification) NotificationDTO {
 func toDeliveryDTO(d domain.NotificationDelivery) DeliveryDTO {
 	return DeliveryDTO{
 		ID: d.ID, NotificationID: d.NotificationID, Channel: d.Channel,
-		Status: d.Status, Error: d.Error, AttemptedAt: d.AttemptedAt,
+		Status: d.Status, Error: d.Error, DeviceID: d.DeviceID, Platform: d.Platform,
+		TokenSuffix: d.TokenSuffix, AttemptedAt: d.AttemptedAt,
 	}
 }
 

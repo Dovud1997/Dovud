@@ -36,6 +36,9 @@ type NotificationDelivery struct {
 	Channel        string
 	Status         string
 	Error          *string
+	DeviceID       *string
+	Platform       *string
+	TokenSuffix    *string
 	AttemptedAt    time.Time
 }
 

@@ -19,6 +19,7 @@ func (h *Handler) Register(r fiber.Router) {
 	r.Post("/notifications/read-all", httpx.RequirePermissions("notifications:write"), h.MarkAllRead)
 	r.Post("/notifications/test", httpx.RequirePermissions("notifications:write"), h.CreateTest)
 	r.Post("/notifications", httpx.RequirePermissions("notifications:write"), h.Create)
+	r.Get("/notifications/:id/deliveries", httpx.RequirePermissions("notifications:read"), h.ListDeliveries)
 	r.Post("/notifications/:id/read", httpx.RequirePermissions("notifications:write"), h.MarkRead)
 }
 
@@ -102,4 +103,20 @@ func (h *Handler) CreateTest(c *fiber.Ctx) error {
 		return httpx.Fail(c, err)
 	}
 	return httpx.Created(c, res)
+}
+
+func (h *Handler) ListDeliveries(c *fiber.Ctx) error {
+	cl, err := httpx.ClaimsFromCtx(c)
+	if err != nil {
+		return httpx.Fail(c, err)
+	}
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return httpx.Fail(c, err)
+	}
+	res, err := h.svc.ListDeliveries(c.Context(), cl.TenantID, id)
+	if err != nil {
+		return httpx.Fail(c, err)
+	}
+	return httpx.OK(c, res)
 }
