@@ -216,6 +216,31 @@ func (s *Service) GetFile(ctx context.Context, tenantID, fileID uuid.UUID) (*Fil
 	return &dto, nil
 }
 
+// ResolveBrandingURL returns a long-lived download URL for a ready image file.
+func (s *Service) ResolveBrandingURL(ctx context.Context, tenantID, fileID uuid.UUID, ttl time.Duration) (mime, downloadURL string, err error) {
+	f, err := s.files.FindByID(ctx, tenantID, fileID)
+	if err != nil {
+		return "", "", err
+	}
+	if f.Status != domain.FileStatusReady {
+		return "", "", apperrors.New("FILE_NOT_READY", "File upload is not complete", 409)
+	}
+	if !strings.HasPrefix(strings.ToLower(f.Mime), "image/") {
+		return "", "", apperrors.New("INVALID_ASSET", "Branding assets must be images", 400)
+	}
+	if s.store == nil {
+		return "", "", apperrors.ErrUnavailable
+	}
+	if ttl <= 0 {
+		ttl = 365 * 24 * time.Hour
+	}
+	url, err := s.store.PresignGet(ctx, f.ObjectKey, ttl)
+	if err != nil {
+		return "", "", apperrors.Wrap(err, "STORAGE_ERROR", "Failed to create download URL", 502)
+	}
+	return f.Mime, url, nil
+}
+
 func (s *Service) DeleteFile(ctx context.Context, tenantID, fileID uuid.UUID) error {
 	f, err := s.files.FindByID(ctx, tenantID, fileID)
 	if err != nil {

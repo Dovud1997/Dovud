@@ -2,7 +2,9 @@ package application
 
 import (
 	"context"
+	"regexp"
 	"strings"
+	"time"
 
 	"github.com/Dovud1997/Dovud/backend/internal/modules/tenant/domain"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/crypto"
@@ -10,12 +12,18 @@ import (
 	"github.com/google/uuid"
 )
 
+// BrandingAssetResolver resolves a completed image file into a durable download URL.
+type BrandingAssetResolver interface {
+	ResolveBrandingURL(ctx context.Context, tenantID, fileID uuid.UUID, ttl time.Duration) (mime, downloadURL string, err error)
+}
+
 type TenantService struct {
 	tenants   domain.TenantRepository
 	branding  domain.BrandingRepository
 	domains   domain.DomainRepository
 	providers domain.ProviderRepository
 	box       *crypto.SecretBox
+	assets    BrandingAssetResolver
 }
 
 func NewTenantService(
@@ -30,6 +38,33 @@ func (s *TenantService) WithProviders(providers domain.ProviderRepository, box *
 	s.providers = providers
 	s.box = box
 	return s
+}
+
+func (s *TenantService) WithAssets(assets BrandingAssetResolver) *TenantService {
+	s.assets = assets
+	return s
+}
+
+var hostPattern = regexp.MustCompile(`(?i)^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)*[a-z0-9]([a-z0-9-]*[a-z0-9])?(:\d{1,5})?$`)
+
+func normalizeHost(raw string) string {
+	host := strings.ToLower(strings.TrimSpace(raw))
+	host = strings.TrimPrefix(host, "https://")
+	host = strings.TrimPrefix(host, "http://")
+	if i := strings.Index(host, "/"); i >= 0 {
+		host = host[:i]
+	}
+	return strings.TrimSuffix(host, ".")
+}
+
+func validHost(host string) bool {
+	if host == "" || len(host) > 253 {
+		return false
+	}
+	if host == "localhost" || strings.HasPrefix(host, "localhost:") {
+		return true
+	}
+	return hostPattern.MatchString(host)
 }
 
 type TenantDTO struct {
@@ -194,9 +229,17 @@ type CreateDomainInput struct {
 }
 
 func (s *TenantService) AddDomain(ctx context.Context, tenantID uuid.UUID, in CreateDomainInput) (*DomainDTO, error) {
-	host := strings.ToLower(strings.TrimSpace(in.Host))
-	if host == "" {
+	host := normalizeHost(in.Host)
+	if !validHost(host) {
 		return nil, apperrors.ErrValidation
+	}
+	if existing, err := s.domains.FindByHost(ctx, host); err == nil && existing != nil {
+		return nil, apperrors.New("DOMAIN_EXISTS", "Domain host already registered", 409)
+	}
+	if in.IsPrimary {
+		if err := s.domains.ClearPrimary(ctx, tenantID); err != nil {
+			return nil, err
+		}
 	}
 	d := &domain.Domain{TenantID: tenantID, Host: host, IsPrimary: in.IsPrimary}
 	if err := s.domains.Create(ctx, d); err != nil {
@@ -207,4 +250,38 @@ func (s *TenantService) AddDomain(ctx context.Context, tenantID uuid.UUID, in Cr
 
 func (s *TenantService) DeleteDomain(ctx context.Context, tenantID, id uuid.UUID) error {
 	return s.domains.Delete(ctx, tenantID, id)
+}
+
+type AttachBrandingAssetInput struct {
+	FileID uuid.UUID `json:"file_id"`
+	Kind   string    `json:"kind"` // logo | favicon | icon
+}
+
+func (s *TenantService) AttachBrandingAsset(ctx context.Context, tenantID uuid.UUID, in AttachBrandingAssetInput) (*BrandingDTO, error) {
+	if s.assets == nil {
+		return nil, apperrors.ErrUnavailable
+	}
+	kind := strings.ToLower(strings.TrimSpace(in.Kind))
+	switch kind {
+	case "logo", "favicon", "icon":
+	default:
+		return nil, apperrors.ErrValidation
+	}
+	if in.FileID == uuid.Nil {
+		return nil, apperrors.ErrValidation
+	}
+	_, url, err := s.assets.ResolveBrandingURL(ctx, tenantID, in.FileID, 365*24*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+	inBranding := UpdateBrandingInput{}
+	switch kind {
+	case "logo":
+		inBranding.LogoURL = &url
+	case "favicon":
+		inBranding.FaviconURL = &url
+	case "icon":
+		inBranding.IconURL = &url
+	}
+	return s.UpdateBranding(ctx, tenantID, inBranding)
 }

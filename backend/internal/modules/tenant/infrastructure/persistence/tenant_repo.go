@@ -184,7 +184,7 @@ func NewDomainRepo(db *gorm.DB) *DomainRepo { return &DomainRepo{db: db} }
 
 func (r *DomainRepo) List(ctx context.Context, tenantID uuid.UUID) ([]domain.Domain, error) {
 	var rows []DomainModel
-	if err := r.db.WithContext(ctx).Where("tenant_id = ?", tenantID).Find(&rows).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("tenant_id = ?", tenantID).Order("is_primary DESC, host ASC").Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	out := make([]domain.Domain, 0, len(rows))
@@ -195,6 +195,27 @@ func (r *DomainRepo) List(ctx context.Context, tenantID uuid.UUID) ([]domain.Dom
 		})
 	}
 	return out, nil
+}
+
+func (r *DomainRepo) FindByHost(ctx context.Context, host string) (*domain.Domain, error) {
+	var m DomainModel
+	err := r.db.WithContext(ctx).Where("host = ?", strings.ToLower(host)).First(&m).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, apperrors.ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &domain.Domain{
+		ID: m.ID, TenantID: m.TenantID, Host: m.Host, IsPrimary: m.IsPrimary,
+		CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
+	}, nil
+}
+
+func (r *DomainRepo) ClearPrimary(ctx context.Context, tenantID uuid.UUID) error {
+	return r.db.WithContext(ctx).Model(&DomainModel{}).
+		Where("tenant_id = ? AND is_primary = ?", tenantID, true).
+		Update("is_primary", false).Error
 }
 
 func (r *DomainRepo) Create(ctx context.Context, d *domain.Domain) error {

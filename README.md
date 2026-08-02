@@ -2,7 +2,7 @@
 
 White Label SaaS platform for sales force automation — multi-tenant, offline-capable, enterprise-ready.
 
-**Status:** P10 delivered (Users/Roles admin · Branding studio) on top of P0–P9
+**Status:** P11 delivered (Domains admin · Logo upload via presign) on top of P0–P10
 
 ## Architecture
 
@@ -132,9 +132,15 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 - Branding save refreshes session theme via public branding bootstrap
 - Helm chart `0.10.0`
 
-## Next (P11+)
+**P11 — Domains admin · Logo upload via presign**
+- Domains: host normalize/validate, primary uniqueness, `409 DOMAIN_EXISTS`
+- `POST /tenant/branding/assets` attaches ready image file (`logo`/`favicon`/`icon`) with long-lived URL
+- Flutter Domains page + Branding studio logo upload (presign → PUT → complete → attach)
+- Helm chart `0.11.0`
 
-Drift/Isar local DB · real FCM/APNs · domains UI · logo upload via presign
+## Next (P12+)
+
+Drift/Isar local DB · real FCM/APNs
 
 ## Locales & themes
 

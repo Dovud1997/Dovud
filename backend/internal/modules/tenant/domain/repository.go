@@ -23,6 +23,8 @@ type BrandingRepository interface {
 
 type DomainRepository interface {
 	List(ctx context.Context, tenantID uuid.UUID) ([]Domain, error)
+	FindByHost(ctx context.Context, host string) (*Domain, error)
+	ClearPrimary(ctx context.Context, tenantID uuid.UUID) error
 	Create(ctx context.Context, domain *Domain) error
 	Delete(ctx context.Context, tenantID, id uuid.UUID) error
 }

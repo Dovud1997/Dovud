@@ -23,6 +23,7 @@ import 'package:sfa_app/features/portal/presentation/portal_links_page.dart';
 import 'package:sfa_app/features/portal/presentation/portal_page.dart';
 import 'package:sfa_app/features/returns/presentation/returns_page.dart';
 import 'package:sfa_app/features/sync/presentation/sync_page.dart';
+import 'package:sfa_app/features/tenant/presentation/domains_page.dart';
 import 'package:sfa_app/features/tenant/presentation/providers_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -136,6 +137,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ]),
           StatefulShellBranch(routes: [
             GoRoute(path: '/branding', builder: (context, state) => const BrandingPage()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/domains', builder: (context, state) => const DomainsPage()),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(path: '/sync', builder: (context, state) => const SyncPage()),

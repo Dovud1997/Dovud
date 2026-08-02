@@ -26,4 +26,15 @@ class BrandingRepository {
     final envelope = await _api.put('/tenant/branding', data: body);
     return Map<String, dynamic>.from(envelope['data'] as Map? ?? const {});
   }
+
+  Future<Map<String, dynamic>> attachAsset({
+    required String fileId,
+    required String kind,
+  }) async {
+    final envelope = await _api.post('/tenant/branding/assets', data: {
+      'file_id': fileId,
+      'kind': kind,
+    });
+    return Map<String, dynamic>.from(envelope['data'] as Map? ?? const {});
+  }
 }

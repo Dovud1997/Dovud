@@ -174,7 +174,10 @@ func New(cfgPath string) (*Application, error) {
 	}
 	authSvc := identityapp.NewAuthService(userRepo, refreshRepo, deviceRepo, tenantRepo, tokenSvc).WithLoginGuard(loginGuard)
 	rbacSvc := identityapp.NewRBACService(userRepo, roleRepo)
-	tenantSvc := tenantapp.NewTenantService(tenantRepo, brandingRepo, domainRepo).WithProviders(providerRepo, secretBox)
+	docsSvc := docsapp.NewService(fileRepo, documentRepo, objectStore, outboxStore)
+	tenantSvc := tenantapp.NewTenantService(tenantRepo, brandingRepo, domainRepo).
+		WithProviders(providerRepo, secretBox).
+		WithAssets(docsSvc)
 	orgSvc := orgapp.NewService(companyRepo, branchRepo, warehouseRepo)
 	catalogSvc := catalogapp.NewService(manufacturerRepo, categoryRepo, productRepo, priceRepo, promotionRepo)
 	crmSvc := crmapp.NewService(customerRepo, contactRepo, addressRepo, customerCategoryRepo)
@@ -185,7 +188,6 @@ func New(cfgPath string) (*Application, error) {
 	syncSvc := syncapp.NewService(syncDeviceRepo, syncChangeRepo, syncConflictRepo)
 	notifySvc := notifyapp.NewService(notifyRepo, outboxStore)
 	analyticsSvc := analyticsapp.NewService(kpiRepo, db)
-	docsSvc := docsapp.NewService(fileRepo, documentRepo, objectStore, outboxStore)
 	auditSvc := auditapp.NewService(auditRepo, outboxStore)
 	auditWriter := audithttp.NewHTTPWriter(auditSvc, log)
 	portalSvc := portalapp.NewService(customerUserRepo, customerRepo, orderRepo, receivableRepo, documentRepo, userRepo)

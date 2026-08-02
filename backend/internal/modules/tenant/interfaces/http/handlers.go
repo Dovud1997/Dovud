@@ -33,6 +33,7 @@ func (h *Handler) RegisterProtected(r fiber.Router) {
 	r.Put("/tenant", httpx.RequirePermissions("tenant:write"), h.UpdateTenant)
 	r.Get("/tenant/branding", httpx.RequirePermissions("tenant:read"), h.GetBranding)
 	r.Put("/tenant/branding", httpx.RequirePermissions("tenant:write"), h.UpdateBranding)
+	r.Post("/tenant/branding/assets", httpx.RequirePermissions("tenant:write"), h.AttachBrandingAsset)
 	r.Get("/tenant/domains", httpx.RequirePermissions("tenant:read"), h.ListDomains)
 	r.Post("/tenant/domains", httpx.RequirePermissions("tenant:write"), h.AddDomain)
 	r.Delete("/tenant/domains/:id", httpx.RequirePermissions("tenant:write"), h.DeleteDomain)
@@ -104,6 +105,22 @@ func (h *Handler) UpdateBranding(c *fiber.Ctx) error {
 		return httpx.Fail(c, err)
 	}
 	res, err := h.svc.UpdateBranding(c.Context(), claims.TenantID, in)
+	if err != nil {
+		return httpx.Fail(c, err)
+	}
+	return httpx.OK(c, res)
+}
+
+func (h *Handler) AttachBrandingAsset(c *fiber.Ctx) error {
+	claims, err := httpx.ClaimsFromCtx(c)
+	if err != nil {
+		return httpx.Fail(c, err)
+	}
+	var in application.AttachBrandingAssetInput
+	if err := c.BodyParser(&in); err != nil {
+		return httpx.Fail(c, err)
+	}
+	res, err := h.svc.AttachBrandingAsset(c.Context(), claims.TenantID, in)
 	if err != nil {
 		return httpx.Fail(c, err)
 	}

@@ -55,4 +55,23 @@ class ApiClient {
     final res = await dio.delete(path);
     return Map<String, dynamic>.from(res.data as Map? ?? const {});
   }
+
+  /// PUT raw bytes to an absolute (presigned) URL — no auth header.
+  Future<void> putBytesAbsolute(String url, List<int> bytes, {required String contentType}) async {
+    final client = Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 60),
+    ));
+    await client.put(
+      url,
+      data: bytes,
+      options: Options(
+        headers: {
+          'Content-Type': contentType,
+          'Content-Length': bytes.length,
+        },
+        contentType: contentType,
+      ),
+    );
+  }
 }

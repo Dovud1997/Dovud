@@ -1,7 +1,9 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sfa_app/features/auth/presentation/auth_controller.dart';
 import 'package:sfa_app/features/branding/data/branding_repository.dart';
+import 'package:sfa_app/features/documents/data/documents_repository.dart';
 
 final tenantBrandingProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) {
   return ref.watch(brandingRepositoryProvider).fetchTenant();
@@ -73,6 +75,66 @@ class _BrandingPageState extends ConsumerState<BrandingPage> {
     }
   }
 
+  Future<void> _uploadLogo() async {
+    setState(() {
+      _busy = true;
+      _message = null;
+    });
+    try {
+      final picked = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: true,
+      );
+      if (picked == null || picked.files.isEmpty) {
+        setState(() => _busy = false);
+        return;
+      }
+      final file = picked.files.first;
+      final bytes = file.bytes;
+      if (bytes == null || bytes.isEmpty) {
+        throw StateError('Could not read file bytes');
+      }
+      final mime = _guessMime(file.name, file.extension);
+      final uploaded = await ref.read(documentsRepositoryProvider).uploadBytes(
+            fileName: file.name,
+            mime: mime,
+            bytes: bytes,
+          );
+      final branding = await ref.read(brandingRepositoryProvider).attachAsset(
+            fileId: uploaded['id'].toString(),
+            kind: 'logo',
+          );
+      _logoUrl.text = branding['logo_url']?.toString() ?? _logoUrl.text;
+      await ref.read(sessionControllerProvider.notifier).refreshBranding();
+      ref.invalidate(tenantBrandingProvider);
+      setState(() {
+        _loaded = false;
+        _message = 'Logo uploaded';
+      });
+    } catch (e) {
+      setState(() => _message = '$e');
+    } finally {
+      setState(() => _busy = false);
+    }
+  }
+
+  String _guessMime(String name, String? ext) {
+    final e = (ext ?? name.split('.').last).toLowerCase();
+    switch (e) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'webp':
+        return 'image/webp';
+      case 'gif':
+        return 'image/gif';
+      case 'svg':
+        return 'image/svg+xml';
+      default:
+        return 'image/png';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(tenantBrandingProvider);
@@ -81,16 +143,33 @@ class _BrandingPageState extends ConsumerState<BrandingPage> {
       children: [
         Text('Branding studio', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 8),
-        Text('App name, colors, and logo URL for this tenant.'),
+        Text('App name, colors, and logo (URL or upload via presign).'),
         const SizedBox(height: 16),
         async.when(
           data: (data) {
             _hydrate(data);
+            final logo = _logoUrl.text.trim();
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 TextField(controller: _appName, decoration: const InputDecoration(labelText: 'App name')),
                 TextField(controller: _logoUrl, decoration: const InputDecoration(labelText: 'Logo URL')),
+                const SizedBox(height: 8),
+                FilledButton.tonal(
+                  onPressed: _busy ? null : _uploadLogo,
+                  child: const Text('Upload logo'),
+                ),
+                if (logo.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      logo,
+                      height: 72,
+                      errorBuilder: (_, __, ___) => const Text('Logo preview unavailable'),
+                    ),
+                  ),
+                ],
                 TextField(controller: _primary, decoration: const InputDecoration(labelText: 'Primary color')),
                 TextField(controller: _secondary, decoration: const InputDecoration(labelText: 'Secondary color')),
                 TextField(controller: _accent, decoration: const InputDecoration(labelText: 'Accent color')),
