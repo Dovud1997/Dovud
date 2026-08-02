@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sfa_app/core/config/app_config.dart';
 import 'package:sfa_app/core/offline/sync_worker.dart';
 import 'package:sfa_app/features/auth/presentation/auth_controller.dart';
+import 'package:sfa_app/features/notifications/data/notifications_repository.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 final liveChannelProvider = Provider<LiveChannel>((ref) {
@@ -89,6 +90,9 @@ class LiveChannel {
         type == 'return.updated') {
       lastInvalidateAt = DateTime.now().toUtc();
       unawaited(_ref.read(syncWorkerProvider).tick(reason: 'ws:$type'));
+      if (type == 'notification.created') {
+        _ref.invalidate(unreadNotificationsCountProvider);
+      }
     }
   }
 

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sfa_app/core/shell/nav_destinations.dart';
 import 'package:sfa_app/features/auth/presentation/auth_controller.dart';
+import 'package:sfa_app/features/notifications/data/notifications_repository.dart';
 
 class AdminShell extends ConsumerWidget {
   const AdminShell({super.key, required this.navigationShell});
@@ -17,6 +18,7 @@ class AdminShell extends ConsumerWidget {
     final destinations = adminDestinationsFor(user);
     final wide = MediaQuery.sizeOf(context).width >= 900;
     final idx = _selectedIndex(destinations, GoRouterState.of(context).uri.path);
+    final unread = ref.watch(unreadNotificationsCountProvider).valueOrNull ?? 0;
 
     final rail = NavigationRail(
       selectedIndex: idx < 0 ? 0 : idx,
@@ -58,9 +60,13 @@ class AdminShell extends ConsumerWidget {
               ),
         actions: [
           IconButton(
-            tooltip: 'Notifications',
+            tooltip: unread > 0 ? 'Notifications ($unread)' : 'Notifications',
             onPressed: () => context.go('/notifications'),
-            icon: const Icon(Icons.notifications_outlined),
+            icon: Badge(
+              isLabelVisible: unread > 0,
+              label: Text(unread > 99 ? '99+' : '$unread'),
+              child: const Icon(Icons.notifications_outlined),
+            ),
           ),
           IconButton(
             tooltip: 'Log out',

@@ -11,13 +11,23 @@ import (
 	"github.com/google/uuid"
 )
 
+type LivePublisher interface {
+	Publish(tenantID uuid.UUID, eventType string, payload map[string]any)
+}
+
 type Service struct {
 	repo   domain.NotificationRepository
 	outbox *outbox.Store
+	live   LivePublisher
 }
 
 func NewService(repo domain.NotificationRepository, outboxStore *outbox.Store) *Service {
 	return &Service{repo: repo, outbox: outboxStore}
+}
+
+func (s *Service) WithLive(live LivePublisher) *Service {
+	s.live = live
+	return s
 }
 
 type NotificationDTO struct {
@@ -108,6 +118,15 @@ func (s *Service) Create(ctx context.Context, tenantID uuid.UUID, in CreateInput
 			"type":            n.Type,
 			"title":           n.Title,
 			"body":            n.Body,
+			"channel":         channel,
+		})
+	}
+	if s.live != nil {
+		s.live.Publish(tenantID, "notification.created", map[string]any{
+			"notification_id": n.ID.String(),
+			"user_id":         n.UserID.String(),
+			"type":            n.Type,
+			"title":           n.Title,
 			"channel":         channel,
 		})
 	}

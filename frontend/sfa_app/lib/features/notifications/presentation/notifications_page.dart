@@ -11,39 +11,124 @@ final deliveriesProvider =
   return ref.watch(notificationsRepositoryProvider).listDeliveries(id);
 });
 
-class NotificationsPage extends ConsumerWidget {
+class NotificationsPage extends ConsumerStatefulWidget {
   const NotificationsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NotificationsPage> createState() => _NotificationsPageState();
+}
+
+class _NotificationsPageState extends ConsumerState<NotificationsPage> {
+  bool _busy = false;
+  bool _unreadOnly = false;
+
+  Future<void> _markRead(String id) async {
+    if (id.isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(notificationsRepositoryProvider).markRead(id);
+      ref.invalidate(notificationsProvider);
+      ref.invalidate(unreadNotificationsCountProvider);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _markAllRead() async {
+    setState(() => _busy = true);
+    try {
+      final n = await ref.read(notificationsRepositoryProvider).markAllRead();
+      ref.invalidate(notificationsProvider);
+      ref.invalidate(unreadNotificationsCountProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(n == 0 ? 'Nothing to mark' : 'Marked $n as read')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final async = ref.watch(notificationsProvider);
+    final unreadAsync = ref.watch(unreadNotificationsCountProvider);
+    final unread = unreadAsync.valueOrNull ?? 0;
     return Scaffold(
-      appBar: AppBar(title: const Text('Notifications')),
+      appBar: AppBar(
+        title: Text(unread > 0 ? 'Notifications ($unread)' : 'Notifications'),
+        actions: [
+          IconButton(
+            tooltip: _unreadOnly ? 'Show all' : 'Unread only',
+            onPressed: _busy
+                ? null
+                : () {
+                    setState(() => _unreadOnly = !_unreadOnly);
+                    // filter client-side from cached list
+                  },
+            icon: Icon(_unreadOnly ? Icons.filter_alt : Icons.filter_alt_outlined),
+          ),
+          TextButton(
+            onPressed: _busy || unread == 0 ? null : _markAllRead,
+            child: const Text('Mark all'),
+          ),
+        ],
+      ),
       body: async.when(
-        data: (items) => items.isEmpty
-            ? const Center(child: Text('No notifications'))
-            : ListView.separated(
-                itemCount: items.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (context, i) {
-                  final n = items[i];
-                  final unread = n['read_at'] == null;
-                  final id = n['id']?.toString() ?? '';
-                  return ExpansionTile(
-                    leading: Icon(
-                      unread ? Icons.mark_email_unread_outlined : Icons.mark_email_read_outlined,
-                    ),
-                    title: Text(n['title']?.toString() ?? ''),
-                    subtitle: Text('${n['body'] ?? ''} · ${n['channel'] ?? ''}'),
-                    children: [
-                      if (id.isEmpty)
-                        const ListTile(title: Text('Missing id'))
-                      else
-                        _DeliveriesList(notificationId: id),
-                    ],
-                  );
+        data: (items) {
+          final filtered = _unreadOnly
+              ? items.where((n) => n['read_at'] == null).toList()
+              : items;
+          if (filtered.isEmpty) {
+            return Center(child: Text(_unreadOnly ? 'No unread' : 'No notifications'));
+          }
+          return ListView.separated(
+            itemCount: filtered.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, i) {
+              final n = filtered[i];
+              final unreadItem = n['read_at'] == null;
+              final id = n['id']?.toString() ?? '';
+              return ExpansionTile(
+                leading: Icon(
+                  unreadItem ? Icons.mark_email_unread_outlined : Icons.mark_email_read_outlined,
+                  color: unreadItem ? Theme.of(context).colorScheme.primary : null,
+                ),
+                title: Text(
+                  n['title']?.toString() ?? '',
+                  style: TextStyle(fontWeight: unreadItem ? FontWeight.w600 : FontWeight.w400),
+                ),
+                subtitle: Text('${n['body'] ?? ''} · ${n['channel'] ?? ''}'),
+                trailing: unreadItem
+                    ? TextButton(
+                        onPressed: _busy ? null : () => _markRead(id),
+                        child: const Text('Read'),
+                      )
+                    : null,
+                onExpansionChanged: (open) {
+                  if (open && unreadItem) {
+                    _markRead(id);
+                  }
                 },
-              ),
+                children: [
+                  if (id.isEmpty)
+                    const ListTile(title: Text('Missing id'))
+                  else
+                    _DeliveriesList(notificationId: id),
+                ],
+              );
+            },
+          );
+        },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('$e')),
       ),
