@@ -907,18 +907,490 @@ class OutboxOpsCompanion extends UpdateCompanion<OutboxOpRow> {
   }
 }
 
+class $FileUploadsTable extends FileUploads
+    with TableInfo<$FileUploadsTable, FileUploadRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FileUploadsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _uploadIdMeta =
+      const VerificationMeta('uploadId');
+  @override
+  late final GeneratedColumn<String> uploadId = GeneratedColumn<String>(
+      'upload_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _fileNameMeta =
+      const VerificationMeta('fileName');
+  @override
+  late final GeneratedColumn<String> fileName = GeneratedColumn<String>(
+      'file_name', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _mimeMeta = const VerificationMeta('mime');
+  @override
+  late final GeneratedColumn<String> mime = GeneratedColumn<String>(
+      'mime', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _sizeBytesMeta =
+      const VerificationMeta('sizeBytes');
+  @override
+  late final GeneratedColumn<int> sizeBytes = GeneratedColumn<int>(
+      'size_bytes', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _localPathMeta =
+      const VerificationMeta('localPath');
+  @override
+  late final GeneratedColumn<String> localPath = GeneratedColumn<String>(
+      'local_path', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+      'status', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('pending'));
+  static const VerificationMeta _remoteFileIdMeta =
+      const VerificationMeta('remoteFileId');
+  @override
+  late final GeneratedColumn<String> remoteFileId = GeneratedColumn<String>(
+      'remote_file_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _errorMeta = const VerificationMeta('error');
+  @override
+  late final GeneratedColumn<String> error = GeneratedColumn<String>(
+      'error', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [
+        uploadId,
+        fileName,
+        mime,
+        sizeBytes,
+        localPath,
+        status,
+        remoteFileId,
+        error,
+        createdAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'file_uploads';
+  @override
+  VerificationContext validateIntegrity(Insertable<FileUploadRow> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('upload_id')) {
+      context.handle(_uploadIdMeta,
+          uploadId.isAcceptableOrUnknown(data['upload_id']!, _uploadIdMeta));
+    } else if (isInserting) {
+      context.missing(_uploadIdMeta);
+    }
+    if (data.containsKey('file_name')) {
+      context.handle(_fileNameMeta,
+          fileName.isAcceptableOrUnknown(data['file_name']!, _fileNameMeta));
+    } else if (isInserting) {
+      context.missing(_fileNameMeta);
+    }
+    if (data.containsKey('mime')) {
+      context.handle(
+          _mimeMeta, mime.isAcceptableOrUnknown(data['mime']!, _mimeMeta));
+    } else if (isInserting) {
+      context.missing(_mimeMeta);
+    }
+    if (data.containsKey('size_bytes')) {
+      context.handle(_sizeBytesMeta,
+          sizeBytes.isAcceptableOrUnknown(data['size_bytes']!, _sizeBytesMeta));
+    }
+    if (data.containsKey('local_path')) {
+      context.handle(_localPathMeta,
+          localPath.isAcceptableOrUnknown(data['local_path']!, _localPathMeta));
+    }
+    if (data.containsKey('status')) {
+      context.handle(_statusMeta,
+          status.isAcceptableOrUnknown(data['status']!, _statusMeta));
+    }
+    if (data.containsKey('remote_file_id')) {
+      context.handle(
+          _remoteFileIdMeta,
+          remoteFileId.isAcceptableOrUnknown(
+              data['remote_file_id']!, _remoteFileIdMeta));
+    }
+    if (data.containsKey('error')) {
+      context.handle(
+          _errorMeta, error.isAcceptableOrUnknown(data['error']!, _errorMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {uploadId};
+  @override
+  FileUploadRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FileUploadRow(
+      uploadId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}upload_id'])!,
+      fileName: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}file_name'])!,
+      mime: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}mime'])!,
+      sizeBytes: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}size_bytes'])!,
+      localPath: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}local_path']),
+      status: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}status'])!,
+      remoteFileId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}remote_file_id']),
+      error: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}error']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $FileUploadsTable createAlias(String alias) {
+    return $FileUploadsTable(attachedDatabase, alias);
+  }
+}
+
+class FileUploadRow extends DataClass implements Insertable<FileUploadRow> {
+  final String uploadId;
+  final String fileName;
+  final String mime;
+  final int sizeBytes;
+  final String? localPath;
+  final String status;
+  final String? remoteFileId;
+  final String? error;
+  final DateTime createdAt;
+  const FileUploadRow(
+      {required this.uploadId,
+      required this.fileName,
+      required this.mime,
+      required this.sizeBytes,
+      this.localPath,
+      required this.status,
+      this.remoteFileId,
+      this.error,
+      required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['upload_id'] = Variable<String>(uploadId);
+    map['file_name'] = Variable<String>(fileName);
+    map['mime'] = Variable<String>(mime);
+    map['size_bytes'] = Variable<int>(sizeBytes);
+    if (!nullToAbsent || localPath != null) {
+      map['local_path'] = Variable<String>(localPath);
+    }
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || remoteFileId != null) {
+      map['remote_file_id'] = Variable<String>(remoteFileId);
+    }
+    if (!nullToAbsent || error != null) {
+      map['error'] = Variable<String>(error);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  FileUploadsCompanion toCompanion(bool nullToAbsent) {
+    return FileUploadsCompanion(
+      uploadId: Value(uploadId),
+      fileName: Value(fileName),
+      mime: Value(mime),
+      sizeBytes: Value(sizeBytes),
+      localPath: localPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(localPath),
+      status: Value(status),
+      remoteFileId: remoteFileId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remoteFileId),
+      error:
+          error == null && nullToAbsent ? const Value.absent() : Value(error),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory FileUploadRow.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FileUploadRow(
+      uploadId: serializer.fromJson<String>(json['uploadId']),
+      fileName: serializer.fromJson<String>(json['fileName']),
+      mime: serializer.fromJson<String>(json['mime']),
+      sizeBytes: serializer.fromJson<int>(json['sizeBytes']),
+      localPath: serializer.fromJson<String?>(json['localPath']),
+      status: serializer.fromJson<String>(json['status']),
+      remoteFileId: serializer.fromJson<String?>(json['remoteFileId']),
+      error: serializer.fromJson<String?>(json['error']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'uploadId': serializer.toJson<String>(uploadId),
+      'fileName': serializer.toJson<String>(fileName),
+      'mime': serializer.toJson<String>(mime),
+      'sizeBytes': serializer.toJson<int>(sizeBytes),
+      'localPath': serializer.toJson<String?>(localPath),
+      'status': serializer.toJson<String>(status),
+      'remoteFileId': serializer.toJson<String?>(remoteFileId),
+      'error': serializer.toJson<String?>(error),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  FileUploadRow copyWith(
+          {String? uploadId,
+          String? fileName,
+          String? mime,
+          int? sizeBytes,
+          Value<String?> localPath = const Value.absent(),
+          String? status,
+          Value<String?> remoteFileId = const Value.absent(),
+          Value<String?> error = const Value.absent(),
+          DateTime? createdAt}) =>
+      FileUploadRow(
+        uploadId: uploadId ?? this.uploadId,
+        fileName: fileName ?? this.fileName,
+        mime: mime ?? this.mime,
+        sizeBytes: sizeBytes ?? this.sizeBytes,
+        localPath: localPath.present ? localPath.value : this.localPath,
+        status: status ?? this.status,
+        remoteFileId:
+            remoteFileId.present ? remoteFileId.value : this.remoteFileId,
+        error: error.present ? error.value : this.error,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  FileUploadRow copyWithCompanion(FileUploadsCompanion data) {
+    return FileUploadRow(
+      uploadId: data.uploadId.present ? data.uploadId.value : this.uploadId,
+      fileName: data.fileName.present ? data.fileName.value : this.fileName,
+      mime: data.mime.present ? data.mime.value : this.mime,
+      sizeBytes: data.sizeBytes.present ? data.sizeBytes.value : this.sizeBytes,
+      localPath: data.localPath.present ? data.localPath.value : this.localPath,
+      status: data.status.present ? data.status.value : this.status,
+      remoteFileId: data.remoteFileId.present
+          ? data.remoteFileId.value
+          : this.remoteFileId,
+      error: data.error.present ? data.error.value : this.error,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FileUploadRow(')
+          ..write('uploadId: $uploadId, ')
+          ..write('fileName: $fileName, ')
+          ..write('mime: $mime, ')
+          ..write('sizeBytes: $sizeBytes, ')
+          ..write('localPath: $localPath, ')
+          ..write('status: $status, ')
+          ..write('remoteFileId: $remoteFileId, ')
+          ..write('error: $error, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(uploadId, fileName, mime, sizeBytes,
+      localPath, status, remoteFileId, error, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FileUploadRow &&
+          other.uploadId == this.uploadId &&
+          other.fileName == this.fileName &&
+          other.mime == this.mime &&
+          other.sizeBytes == this.sizeBytes &&
+          other.localPath == this.localPath &&
+          other.status == this.status &&
+          other.remoteFileId == this.remoteFileId &&
+          other.error == this.error &&
+          other.createdAt == this.createdAt);
+}
+
+class FileUploadsCompanion extends UpdateCompanion<FileUploadRow> {
+  final Value<String> uploadId;
+  final Value<String> fileName;
+  final Value<String> mime;
+  final Value<int> sizeBytes;
+  final Value<String?> localPath;
+  final Value<String> status;
+  final Value<String?> remoteFileId;
+  final Value<String?> error;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const FileUploadsCompanion({
+    this.uploadId = const Value.absent(),
+    this.fileName = const Value.absent(),
+    this.mime = const Value.absent(),
+    this.sizeBytes = const Value.absent(),
+    this.localPath = const Value.absent(),
+    this.status = const Value.absent(),
+    this.remoteFileId = const Value.absent(),
+    this.error = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FileUploadsCompanion.insert({
+    required String uploadId,
+    required String fileName,
+    required String mime,
+    this.sizeBytes = const Value.absent(),
+    this.localPath = const Value.absent(),
+    this.status = const Value.absent(),
+    this.remoteFileId = const Value.absent(),
+    this.error = const Value.absent(),
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  })  : uploadId = Value(uploadId),
+        fileName = Value(fileName),
+        mime = Value(mime),
+        createdAt = Value(createdAt);
+  static Insertable<FileUploadRow> custom({
+    Expression<String>? uploadId,
+    Expression<String>? fileName,
+    Expression<String>? mime,
+    Expression<int>? sizeBytes,
+    Expression<String>? localPath,
+    Expression<String>? status,
+    Expression<String>? remoteFileId,
+    Expression<String>? error,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (uploadId != null) 'upload_id': uploadId,
+      if (fileName != null) 'file_name': fileName,
+      if (mime != null) 'mime': mime,
+      if (sizeBytes != null) 'size_bytes': sizeBytes,
+      if (localPath != null) 'local_path': localPath,
+      if (status != null) 'status': status,
+      if (remoteFileId != null) 'remote_file_id': remoteFileId,
+      if (error != null) 'error': error,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FileUploadsCompanion copyWith(
+      {Value<String>? uploadId,
+      Value<String>? fileName,
+      Value<String>? mime,
+      Value<int>? sizeBytes,
+      Value<String?>? localPath,
+      Value<String>? status,
+      Value<String?>? remoteFileId,
+      Value<String?>? error,
+      Value<DateTime>? createdAt,
+      Value<int>? rowid}) {
+    return FileUploadsCompanion(
+      uploadId: uploadId ?? this.uploadId,
+      fileName: fileName ?? this.fileName,
+      mime: mime ?? this.mime,
+      sizeBytes: sizeBytes ?? this.sizeBytes,
+      localPath: localPath ?? this.localPath,
+      status: status ?? this.status,
+      remoteFileId: remoteFileId ?? this.remoteFileId,
+      error: error ?? this.error,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (uploadId.present) {
+      map['upload_id'] = Variable<String>(uploadId.value);
+    }
+    if (fileName.present) {
+      map['file_name'] = Variable<String>(fileName.value);
+    }
+    if (mime.present) {
+      map['mime'] = Variable<String>(mime.value);
+    }
+    if (sizeBytes.present) {
+      map['size_bytes'] = Variable<int>(sizeBytes.value);
+    }
+    if (localPath.present) {
+      map['local_path'] = Variable<String>(localPath.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (remoteFileId.present) {
+      map['remote_file_id'] = Variable<String>(remoteFileId.value);
+    }
+    if (error.present) {
+      map['error'] = Variable<String>(error.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FileUploadsCompanion(')
+          ..write('uploadId: $uploadId, ')
+          ..write('fileName: $fileName, ')
+          ..write('mime: $mime, ')
+          ..write('sizeBytes: $sizeBytes, ')
+          ..write('localPath: $localPath, ')
+          ..write('status: $status, ')
+          ..write('remoteFileId: $remoteFileId, ')
+          ..write('error: $error, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$SfaDatabase extends GeneratedDatabase {
   _$SfaDatabase(QueryExecutor e) : super(e);
   $SfaDatabaseManager get managers => $SfaDatabaseManager(this);
   late final $CachedEntitiesTable cachedEntities = $CachedEntitiesTable(this);
   late final $SyncMetaTable syncMeta = $SyncMetaTable(this);
   late final $OutboxOpsTable outboxOps = $OutboxOpsTable(this);
+  late final $FileUploadsTable fileUploads = $FileUploadsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities =>
-      [cachedEntities, syncMeta, outboxOps];
+      [cachedEntities, syncMeta, outboxOps, fileUploads];
 }
 
 typedef $$CachedEntitiesTableCreateCompanionBuilder = CachedEntitiesCompanion
@@ -1410,6 +1882,240 @@ typedef $$OutboxOpsTableProcessedTableManager = ProcessedTableManager<
     (OutboxOpRow, BaseReferences<_$SfaDatabase, $OutboxOpsTable, OutboxOpRow>),
     OutboxOpRow,
     PrefetchHooks Function()>;
+typedef $$FileUploadsTableCreateCompanionBuilder = FileUploadsCompanion
+    Function({
+  required String uploadId,
+  required String fileName,
+  required String mime,
+  Value<int> sizeBytes,
+  Value<String?> localPath,
+  Value<String> status,
+  Value<String?> remoteFileId,
+  Value<String?> error,
+  required DateTime createdAt,
+  Value<int> rowid,
+});
+typedef $$FileUploadsTableUpdateCompanionBuilder = FileUploadsCompanion
+    Function({
+  Value<String> uploadId,
+  Value<String> fileName,
+  Value<String> mime,
+  Value<int> sizeBytes,
+  Value<String?> localPath,
+  Value<String> status,
+  Value<String?> remoteFileId,
+  Value<String?> error,
+  Value<DateTime> createdAt,
+  Value<int> rowid,
+});
+
+class $$FileUploadsTableFilterComposer
+    extends Composer<_$SfaDatabase, $FileUploadsTable> {
+  $$FileUploadsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get uploadId => $composableBuilder(
+      column: $table.uploadId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get fileName => $composableBuilder(
+      column: $table.fileName, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get mime => $composableBuilder(
+      column: $table.mime, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get sizeBytes => $composableBuilder(
+      column: $table.sizeBytes, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get localPath => $composableBuilder(
+      column: $table.localPath, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get status => $composableBuilder(
+      column: $table.status, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get remoteFileId => $composableBuilder(
+      column: $table.remoteFileId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get error => $composableBuilder(
+      column: $table.error, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$FileUploadsTableOrderingComposer
+    extends Composer<_$SfaDatabase, $FileUploadsTable> {
+  $$FileUploadsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get uploadId => $composableBuilder(
+      column: $table.uploadId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get fileName => $composableBuilder(
+      column: $table.fileName, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get mime => $composableBuilder(
+      column: $table.mime, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get sizeBytes => $composableBuilder(
+      column: $table.sizeBytes, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get localPath => $composableBuilder(
+      column: $table.localPath, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get status => $composableBuilder(
+      column: $table.status, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get remoteFileId => $composableBuilder(
+      column: $table.remoteFileId,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get error => $composableBuilder(
+      column: $table.error, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$FileUploadsTableAnnotationComposer
+    extends Composer<_$SfaDatabase, $FileUploadsTable> {
+  $$FileUploadsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get uploadId =>
+      $composableBuilder(column: $table.uploadId, builder: (column) => column);
+
+  GeneratedColumn<String> get fileName =>
+      $composableBuilder(column: $table.fileName, builder: (column) => column);
+
+  GeneratedColumn<String> get mime =>
+      $composableBuilder(column: $table.mime, builder: (column) => column);
+
+  GeneratedColumn<int> get sizeBytes =>
+      $composableBuilder(column: $table.sizeBytes, builder: (column) => column);
+
+  GeneratedColumn<String> get localPath =>
+      $composableBuilder(column: $table.localPath, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get remoteFileId => $composableBuilder(
+      column: $table.remoteFileId, builder: (column) => column);
+
+  GeneratedColumn<String> get error =>
+      $composableBuilder(column: $table.error, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$FileUploadsTableTableManager extends RootTableManager<
+    _$SfaDatabase,
+    $FileUploadsTable,
+    FileUploadRow,
+    $$FileUploadsTableFilterComposer,
+    $$FileUploadsTableOrderingComposer,
+    $$FileUploadsTableAnnotationComposer,
+    $$FileUploadsTableCreateCompanionBuilder,
+    $$FileUploadsTableUpdateCompanionBuilder,
+    (
+      FileUploadRow,
+      BaseReferences<_$SfaDatabase, $FileUploadsTable, FileUploadRow>
+    ),
+    FileUploadRow,
+    PrefetchHooks Function()> {
+  $$FileUploadsTableTableManager(_$SfaDatabase db, $FileUploadsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FileUploadsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FileUploadsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FileUploadsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> uploadId = const Value.absent(),
+            Value<String> fileName = const Value.absent(),
+            Value<String> mime = const Value.absent(),
+            Value<int> sizeBytes = const Value.absent(),
+            Value<String?> localPath = const Value.absent(),
+            Value<String> status = const Value.absent(),
+            Value<String?> remoteFileId = const Value.absent(),
+            Value<String?> error = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              FileUploadsCompanion(
+            uploadId: uploadId,
+            fileName: fileName,
+            mime: mime,
+            sizeBytes: sizeBytes,
+            localPath: localPath,
+            status: status,
+            remoteFileId: remoteFileId,
+            error: error,
+            createdAt: createdAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String uploadId,
+            required String fileName,
+            required String mime,
+            Value<int> sizeBytes = const Value.absent(),
+            Value<String?> localPath = const Value.absent(),
+            Value<String> status = const Value.absent(),
+            Value<String?> remoteFileId = const Value.absent(),
+            Value<String?> error = const Value.absent(),
+            required DateTime createdAt,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              FileUploadsCompanion.insert(
+            uploadId: uploadId,
+            fileName: fileName,
+            mime: mime,
+            sizeBytes: sizeBytes,
+            localPath: localPath,
+            status: status,
+            remoteFileId: remoteFileId,
+            error: error,
+            createdAt: createdAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$FileUploadsTableProcessedTableManager = ProcessedTableManager<
+    _$SfaDatabase,
+    $FileUploadsTable,
+    FileUploadRow,
+    $$FileUploadsTableFilterComposer,
+    $$FileUploadsTableOrderingComposer,
+    $$FileUploadsTableAnnotationComposer,
+    $$FileUploadsTableCreateCompanionBuilder,
+    $$FileUploadsTableUpdateCompanionBuilder,
+    (
+      FileUploadRow,
+      BaseReferences<_$SfaDatabase, $FileUploadsTable, FileUploadRow>
+    ),
+    FileUploadRow,
+    PrefetchHooks Function()>;
 
 class $SfaDatabaseManager {
   final _$SfaDatabase _db;
@@ -1420,4 +2126,6 @@ class $SfaDatabaseManager {
       $$SyncMetaTableTableManager(_db, _db.syncMeta);
   $$OutboxOpsTableTableManager get outboxOps =>
       $$OutboxOpsTableTableManager(_db, _db.outboxOps);
+  $$FileUploadsTableTableManager get fileUploads =>
+      $$FileUploadsTableTableManager(_db, _db.fileUploads);
 }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sfa_app/core/offline/file_upload_queue.dart';
 import 'package:sfa_app/core/offline/offline_store.dart';
 import 'package:sfa_app/features/auth/presentation/auth_controller.dart';
 
@@ -54,7 +55,11 @@ class SyncWorker with WidgetsBindingObserver {
     try {
       final store = _ref.read(offlineStoreProvider);
       final result = await store.syncCycle();
-      lastResult = {...result, 'reason': reason};
+      Map<String, dynamic> uploads = const {};
+      try {
+        uploads = await _ref.read(fileUploadQueueProvider).flush();
+      } catch (_) {}
+      lastResult = {...result, 'uploads': uploads, 'reason': reason};
       lastSuccessAt = DateTime.now().toUtc();
       lastError = null;
       return lastResult;

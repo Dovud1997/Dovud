@@ -4,6 +4,7 @@ import 'package:sfa_app/core/offline/drift/drift_entity_cache.dart';
 import 'package:sfa_app/core/offline/drift/drift_outbox_store.dart';
 import 'package:sfa_app/core/offline/drift/sfa_database.dart';
 import 'package:sfa_app/core/offline/local_outbox.dart';
+import 'package:drift/drift.dart' show Value;
 
 void main() {
   late SfaDatabase db;
@@ -56,5 +57,21 @@ void main() {
     expect((await store.list(status: 'conflict')).single.opId, 'op-1');
     await store.removeByOpIds(['op-1']);
     expect((await store.list(status: 'conflict')), isEmpty);
+  });
+
+  test('FileUploads table enqueue', () async {
+    await db.into(db.fileUploads).insert(
+          FileUploadsCompanion.insert(
+            uploadId: 'up-1',
+            fileName: 'a.txt',
+            mime: 'text/plain',
+            sizeBytes: const Value(3),
+            status: const Value('pending'),
+            createdAt: DateTime.now().toUtc(),
+          ),
+        );
+    final rows = await db.select(db.fileUploads).get();
+    expect(rows.length, 1);
+    expect(rows.first.fileName, 'a.txt');
   });
 }

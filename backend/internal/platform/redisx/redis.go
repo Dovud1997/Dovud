@@ -45,3 +45,22 @@ func (c *Client) Exists(ctx context.Context, key string) (bool, error) {
 	n, err := c.rdb.Exists(ctx, key).Result()
 	return n > 0, err
 }
+
+// TryLock acquires a lock with SET NX + TTL. Returns false if already held.
+func (c *Client) TryLock(ctx context.Context, key, token string, ttl time.Duration) (bool, error) {
+	if ttl <= 0 {
+		ttl = 30 * time.Second
+	}
+	return c.rdb.SetNX(ctx, key, token, ttl).Result()
+}
+
+// Unlock releases a lock only if the token matches (safe unlock).
+func (c *Client) Unlock(ctx context.Context, key, token string) error {
+	const script = `
+if redis.call("get", KEYS[1]) == ARGV[1] then
+  return redis.call("del", KEYS[1])
+else
+  return 0
+end`
+	return c.rdb.Eval(ctx, script, []string{key}, token).Err()
+}

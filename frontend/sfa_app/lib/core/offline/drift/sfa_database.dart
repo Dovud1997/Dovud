@@ -37,7 +37,23 @@ class OutboxOps extends Table {
   Set<Column<Object>> get primaryKey => {opId};
 }
 
-@DriftDatabase(tables: [CachedEntities, SyncMeta, OutboxOps])
+@DataClassName('FileUploadRow')
+class FileUploads extends Table {
+  TextColumn get uploadId => text()();
+  TextColumn get fileName => text()();
+  TextColumn get mime => text()();
+  IntColumn get sizeBytes => integer().withDefault(const Constant(0))();
+  TextColumn get localPath => text().nullable()();
+  TextColumn get status => text().withDefault(const Constant('pending'))();
+  TextColumn get remoteFileId => text().nullable()();
+  TextColumn get error => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {uploadId};
+}
+
+@DriftDatabase(tables: [CachedEntities, SyncMeta, OutboxOps, FileUploads])
 class SfaDatabase extends _$SfaDatabase {
   SfaDatabase(super.e);
 
@@ -50,5 +66,15 @@ class SfaDatabase extends _$SfaDatabase {
   factory SfaDatabase.memory(QueryExecutor executor) => SfaDatabase(executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (m) async => m.createAll(),
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.createTable(fileUploads);
+          }
+        },
+      );
 }

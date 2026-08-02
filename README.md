@@ -2,7 +2,7 @@
 
 White Label SaaS platform for sales force automation — multi-tenant, offline-capable, enterprise-ready.
 
-**Status:** P21 delivered (domain→sync fan-out + agent writes) on completed P0–P20 roadmap
+**Status:** P22 delivered (sync locks + offline upload queue) on P0–P21
 
 ## Architecture
 
@@ -240,7 +240,13 @@ Without Firebase configured, the app falls back to `stub-push-*` tokens (worker 
 - Agent Flutter screens: create customer, draft order, visit check-in/out via online-first + outbox fallback
 - Helm chart `0.21.0`
 
-Still deferred: offline photo upload queue · Redis sync locks · WebSocket live channel · sync push applying into domain tables · field-level merge UX
+**P22 — Redis sync locks · offline file upload queue**
+- `sync:lock:{tenant}:{device}` via Redis SET NX on push (429 when busy)
+- Drift `file_uploads` table + `FileUploadQueue` (enqueue / flush with documents presign)
+- SyncWorker flushes uploads after push→pull; Documents page queues demo uploads
+- Helm chart `0.22.0`
+
+Still deferred: WebSocket live channel · sync push applying into domain tables · field-level merge UX
 
 ## Locales & themes
 
