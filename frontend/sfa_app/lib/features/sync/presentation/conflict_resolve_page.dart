@@ -19,6 +19,10 @@ class _ConflictResolvePageState extends ConsumerState<ConflictResolvePage> {
   SyncConflict? _conflict;
   String? _error;
   bool _busy = false;
+  /// true = keep client value for that field
+  final Map<String, bool> _pickClient = {};
+
+  static const _skipKeys = {'id', 'version', 'created_at', 'updated_at'};
 
   @override
   void initState() {
@@ -37,7 +41,12 @@ class _ConflictResolvePageState extends ConsumerState<ConflictResolvePage> {
       if (match.isEmpty) {
         setState(() => _error = 'Conflict not found or already resolved');
       } else {
-        setState(() => _conflict = match.first);
+        final c = match.first;
+        final diffs = _diffKeys(c.serverPayload, c.clientPayload);
+        _pickClient
+          ..clear()
+          ..addEntries(diffs.map((k) => MapEntry(k, true)));
+        setState(() => _conflict = c);
       }
     } catch (e) {
       setState(() => _error = '$e');
@@ -46,13 +55,34 @@ class _ConflictResolvePageState extends ConsumerState<ConflictResolvePage> {
     }
   }
 
-  Future<void> _resolve(String resolution) async {
+  List<String> _diffKeys(Map<String, dynamic> server, Map<String, dynamic> client) {
+    final keys = {...server.keys, ...client.keys}
+        .where((k) => !_skipKeys.contains(k))
+        .toList()
+      ..sort();
+    return keys.where((k) {
+      return jsonEncode(server[k]) != jsonEncode(client[k]);
+    }).toList();
+  }
+
+  Map<String, dynamic> _mergedPayload(SyncConflict c) {
+    final out = Map<String, dynamic>.from(c.serverPayload);
+    for (final e in _pickClient.entries) {
+      if (e.value) {
+        out[e.key] = c.clientPayload[e.key];
+      }
+    }
+    return out;
+  }
+
+  Future<void> _resolve(String resolution, {Map<String, dynamic>? merged}) async {
     setState(() => _busy = true);
     try {
       final repo = ref.read(syncRepositoryProvider);
       final resolved = await repo.resolveConflict(
         conflictId: widget.conflictId,
         resolution: resolution,
+        mergedPayload: merged,
       );
       final opId = resolved.clientOpId;
       if (opId.isNotEmpty) {
@@ -74,11 +104,11 @@ class _ConflictResolvePageState extends ConsumerState<ConflictResolvePage> {
     }
   }
 
-  String _pretty(Map<String, dynamic> m) {
+  String _pretty(dynamic v) {
     try {
-      return const JsonEncoder.withIndent('  ').convert(m);
+      return const JsonEncoder.withIndent('  ').convert(v);
     } catch (_) {
-      return m.toString();
+      return '$v';
     }
   }
 
@@ -100,21 +130,42 @@ class _ConflictResolvePageState extends ConsumerState<ConflictResolvePage> {
                             style: Theme.of(context).textTheme.titleMedium),
                         Text('base v${c.baseVersion} → server v${c.serverVersion}'),
                         const SizedBox(height: 16),
-                        Text('Server', style: Theme.of(context).textTheme.titleSmall),
-                        SelectableText(_pretty(c.serverPayload)),
-                        const SizedBox(height: 16),
-                        Text('Yours', style: Theme.of(context).textTheme.titleSmall),
-                        SelectableText(_pretty(c.clientPayload)),
-                        const SizedBox(height: 24),
+                        Text('Field merge', style: Theme.of(context).textTheme.titleSmall),
+                        if (_pickClient.isEmpty)
+                          const Text('No field differences — use Take server / Keep mine')
+                        else
+                          ..._pickClient.keys.map((key) {
+                            final pickMine = _pickClient[key] ?? true;
+                            return CheckboxListTile(
+                              contentPadding: EdgeInsets.zero,
+                              value: pickMine,
+                              onChanged: _busy
+                                  ? null
+                                  : (v) => setState(() => _pickClient[key] = v ?? true),
+                              title: Text(key),
+                              subtitle: Text(
+                                'server: ${_pretty(c.serverPayload[key])}\n'
+                                'yours: ${_pretty(c.clientPayload[key])}',
+                              ),
+                              secondary: Text(pickMine ? 'Yours' : 'Server'),
+                            );
+                          }),
+                        const SizedBox(height: 12),
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
                           children: [
                             FilledButton(
+                              onPressed: _busy
+                                  ? null
+                                  : () => _resolve('merge', merged: _mergedPayload(c)),
+                              child: const Text('Apply merge'),
+                            ),
+                            FilledButton.tonal(
                               onPressed: _busy ? null : () => _resolve('server_wins'),
                               child: const Text('Take server'),
                             ),
-                            FilledButton.tonal(
+                            OutlinedButton(
                               onPressed: _busy ? null : () => _resolve('client_wins'),
                               child: const Text('Keep mine'),
                             ),

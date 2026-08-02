@@ -30,7 +30,7 @@ func (s *Service) WithSync(rec syncport.ChangeRecorder) *Service {
 }
 
 func (s *Service) record(ctx context.Context, tenantID uuid.UUID, dto *OrderDTO) {
-	if s.sync == nil || dto == nil {
+	if s.sync == nil || dto == nil || !syncport.ShouldFanout(ctx) {
 		return
 	}
 	_ = s.sync.RecordChange(ctx, tenantID, "order", dto.ID.String(), dto.Version, false, dto)

@@ -5,8 +5,11 @@ import (
 	"testing"
 	"time"
 
+	crmdomain "github.com/Dovud1997/Dovud/backend/internal/modules/crm/domain"
+	crmpersist "github.com/Dovud1997/Dovud/backend/internal/modules/crm/infrastructure/persistence"
 	"github.com/Dovud1997/Dovud/backend/internal/modules/sync/application"
 	"github.com/Dovud1997/Dovud/backend/internal/modules/sync/domain"
+	"github.com/Dovud1997/Dovud/backend/internal/modules/sync/infrastructure/applicator"
 	syncpersist "github.com/Dovud1997/Dovud/backend/internal/modules/sync/infrastructure/persistence"
 	apperrors "github.com/Dovud1997/Dovud/backend/internal/platform/errors"
 	"github.com/glebarez/sqlite"
@@ -201,6 +204,157 @@ func (m *memLocker) Unlock(_ context.Context, key, token string) error {
 		delete(m.held, key)
 	}
 	return nil
+}
+
+func TestPushCreateCustomerAppliesDomain(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(
+		&syncpersist.SyncDeviceModel{},
+		&syncpersist.SyncChangeLogModel{},
+		&syncpersist.SyncConflictModel{},
+		&syncpersist.SyncAppliedOpModel{},
+		&crmpersist.CustomerModel{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	svc := application.NewService(
+		syncpersist.NewDeviceRepo(db),
+		syncpersist.NewChangeLogRepo(db),
+		syncpersist.NewConflictRepo(db),
+	).WithApplicator(applicator.New(
+		crmpersist.NewCustomerRepo(db),
+		nil,
+		nil,
+	))
+	// orders/visits nil — only customer supported path used
+	tenantID := uuid.New()
+	userID := uuid.New()
+	deviceID := "dev-apply"
+	entityID := uuid.New().String()
+	ctx := context.Background()
+	if _, err := svc.Bootstrap(ctx, tenantID, userID, application.BootstrapInput{DeviceID: deviceID}); err != nil {
+		t.Fatal(err)
+	}
+	push, err := svc.Push(ctx, tenantID, userID, application.PushInput{
+		DeviceID: deviceID,
+		Ops: []domain.SyncOp{{
+			OpID: uuid.New().String(), EntityType: "customer", EntityID: entityID,
+			Op: domain.OpCreate, Payload: map[string]any{"code": "C1", "name": "Acme"}, ClientTS: time.Now().UTC(),
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(push.Results) != 1 || push.Results[0].Status != domain.PushAcked {
+		t.Fatalf("push=%+v", push.Results)
+	}
+	cid, _ := uuid.Parse(entityID)
+	var row crmpersist.CustomerModel
+	if err := db.Where("id = ? AND tenant_id = ?", cid, tenantID).First(&row).Error; err != nil {
+		t.Fatalf("customer missing: %v", err)
+	}
+	if row.Name != "Acme" || row.Code != "C1" {
+		t.Fatalf("customer=%+v", row)
+	}
+}
+
+func TestResolveConflictMergeAppliesDomain(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(
+		&syncpersist.SyncDeviceModel{},
+		&syncpersist.SyncChangeLogModel{},
+		&syncpersist.SyncConflictModel{},
+		&syncpersist.SyncAppliedOpModel{},
+		&crmpersist.CustomerModel{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	customers := crmpersist.NewCustomerRepo(db)
+	cl := syncpersist.NewChangeLogRepo(db)
+	svc := application.NewService(
+		syncpersist.NewDeviceRepo(db),
+		cl,
+		syncpersist.NewConflictRepo(db),
+	).WithApplicator(applicator.New(customers, nil, nil))
+
+	tenantID := uuid.New()
+	userID := uuid.New()
+	deviceID := "dev-merge"
+	entityID := uuid.New()
+	ctx := context.Background()
+	if _, err := svc.Bootstrap(ctx, tenantID, userID, application.BootstrapInput{DeviceID: deviceID}); err != nil {
+		t.Fatal(err)
+	}
+
+	addr := "Main St"
+	c := &crmdomain.Customer{
+		ID: entityID, TenantID: tenantID, Code: "MX", Name: "ServerV2", Type: "outlet", Status: "active",
+		Address: &addr, Version: 1,
+	}
+	if err := customers.Create(ctx, c); err != nil {
+		t.Fatal(err)
+	}
+	// Simulate server already at changelog v2
+	if err := cl.Append(ctx, &domain.SyncChange{
+		TenantID: tenantID, EntityType: "customer", EntityID: entityID.String(),
+		Version: 1, PayloadJSON: `{"name":"ServerName","code":"MX"}`,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := customers.Update(ctx, c); err != nil {
+		t.Fatal(err)
+	}
+	if err := cl.Append(ctx, &domain.SyncChange{
+		TenantID: tenantID, EntityType: "customer", EntityID: entityID.String(),
+		Version: 2, PayloadJSON: `{"name":"ServerV2","code":"MX","address":"Main St"}`,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	push, err := svc.Push(ctx, tenantID, userID, application.PushInput{
+		DeviceID: deviceID,
+		Ops: []domain.SyncOp{{
+			OpID: uuid.New().String(), EntityType: "customer", EntityID: entityID.String(),
+			Op: domain.OpUpdate, BaseVersion: 1,
+			Payload:  map[string]any{"name": "ClientName", "code": "MX", "address": "Client Ave"},
+			ClientTS: time.Now().UTC(),
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(push.Results) != 1 || push.Results[0].Status != domain.PushConflict || push.Results[0].ConflictID == nil {
+		t.Fatalf("expected conflict, got %+v", push.Results)
+	}
+
+	resolved, err := svc.ResolveConflict(ctx, tenantID, *push.Results[0].ConflictID, application.ResolveConflictInput{
+		Resolution: domain.ResolutionMerge,
+		MergedPayload: map[string]any{
+			"name": "ClientName", "code": "MX", "address": "Main St",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved.Status != domain.ConflictStatusResolved || resolved.Resolution == nil || *resolved.Resolution != domain.ResolutionMerge {
+		t.Fatalf("resolved=%+v", resolved)
+	}
+	var row crmpersist.CustomerModel
+	if err := db.Where("id = ?", entityID).First(&row).Error; err != nil {
+		t.Fatal(err)
+	}
+	if row.Name != "ClientName" {
+		t.Fatalf("expected merged name ClientName, got %+v", row)
+	}
+	if row.Address == nil || *row.Address != "Main St" {
+		t.Fatalf("expected server address kept, got %+v", row)
+	}
 }
 
 func strPtr(s string) *string { return &s }

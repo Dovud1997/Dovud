@@ -14,6 +14,7 @@ const (
 
 	ResolutionServerWins = "server_wins"
 	ResolutionClientWins = "client_wins"
+	ResolutionMerge      = "merge"
 
 	OpCreate = "create"
 	OpUpdate = "update"

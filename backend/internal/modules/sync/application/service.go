@@ -10,6 +10,7 @@ import (
 
 	"github.com/Dovud1997/Dovud/backend/internal/modules/sync/domain"
 	apperrors "github.com/Dovud1997/Dovud/backend/internal/platform/errors"
+	"github.com/Dovud1997/Dovud/backend/internal/platform/syncport"
 	"github.com/google/uuid"
 )
 
@@ -23,11 +24,12 @@ type LiveNotifier interface {
 }
 
 type Service struct {
-	devices   domain.DeviceRepository
-	changelog domain.ChangeLogRepository
-	conflicts domain.ConflictRepository
-	locker    DeviceLocker
-	live      LiveNotifier
+	devices    domain.DeviceRepository
+	changelog  domain.ChangeLogRepository
+	conflicts  domain.ConflictRepository
+	locker     DeviceLocker
+	live       LiveNotifier
+	applicator syncport.EntityApplicator
 }
 
 func NewService(devices domain.DeviceRepository, changelog domain.ChangeLogRepository, conflicts domain.ConflictRepository) *Service {
@@ -41,6 +43,11 @@ func (s *Service) WithLocker(locker DeviceLocker) *Service {
 
 func (s *Service) WithLive(live LiveNotifier) *Service {
 	s.live = live
+	return s
+}
+
+func (s *Service) WithApplicator(app syncport.EntityApplicator) *Service {
+	s.applicator = app
 	return s
 }
 
@@ -106,7 +113,8 @@ type ConflictDTO struct {
 }
 
 type ResolveConflictInput struct {
-	Resolution string `json:"resolution"`
+	Resolution    string         `json:"resolution"`
+	MergedPayload map[string]any `json:"merged_payload,omitempty"`
 }
 
 type StatusResult struct {
@@ -284,16 +292,36 @@ func (s *Service) applyOp(ctx context.Context, tenantID, userID uuid.UUID, devic
 
 	switch opKind {
 	case domain.OpCreate:
+		payloadJSON := clientPayload
+		version := int64(1)
+		deleted := false
+		if s.applicator != nil && s.applicator.Supports(entityType) {
+			applied, aerr := s.applicator.Apply(syncport.WithoutFanout(ctx), syncport.ApplyRequest{
+				TenantID: tenantID, UserID: userID, EntityType: entityType, EntityID: entityID,
+				Op: domain.OpCreate, Payload: op.Payload,
+			})
+			if aerr != nil {
+				return PushOpResult{OpID: opID, Status: domain.PushRejected, Message: aerr.Error()}
+			}
+			payloadJSON = marshalPayload(asMap(applied.Payload))
+			version = applied.Version
+			if version < 1 {
+				version = 1
+			}
+			deleted = applied.Deleted
+		}
 		change := &domain.SyncChange{
 			TenantID: tenantID, EntityType: entityType, EntityID: entityID,
-			Version: 1, Deleted: false, PayloadJSON: clientPayload,
+			Version: version, Deleted: deleted, PayloadJSON: payloadJSON,
 		}
 		if err := s.changelog.Append(ctx, change); err != nil {
 			return PushOpResult{OpID: opID, Status: domain.PushRejected, Message: err.Error()}
 		}
 		_ = s.changelog.MarkAppliedOp(ctx, tenantID, opID)
-		v := int64(1)
-		return PushOpResult{OpID: opID, Status: domain.PushAcked, Version: &v}
+		if s.live != nil {
+			s.live.BroadcastSyncInvalidate(tenantID, entityType)
+		}
+		return PushOpResult{OpID: opID, Status: domain.PushAcked, Version: &version}
 
 	case domain.OpUpdate:
 		latest, err := s.changelog.FindLatest(ctx, tenantID, entityType, entityID)
@@ -319,14 +347,31 @@ func (s *Service) applyOp(ctx context.Context, tenantID, userID uuid.UUID, devic
 		} else {
 			newVersion = latest.Version + 1
 		}
+		payloadJSON := clientPayload
+		if s.applicator != nil && s.applicator.Supports(entityType) {
+			applied, aerr := s.applicator.Apply(syncport.WithoutFanout(ctx), syncport.ApplyRequest{
+				TenantID: tenantID, UserID: userID, EntityType: entityType, EntityID: entityID,
+				Op: domain.OpUpdate, Payload: op.Payload,
+			})
+			if aerr != nil {
+				return PushOpResult{OpID: opID, Status: domain.PushRejected, Message: aerr.Error()}
+			}
+			payloadJSON = marshalPayload(asMap(applied.Payload))
+			if applied.Version > 0 {
+				newVersion = applied.Version
+			}
+		}
 		change := &domain.SyncChange{
 			TenantID: tenantID, EntityType: entityType, EntityID: entityID,
-			Version: newVersion, Deleted: false, PayloadJSON: clientPayload,
+			Version: newVersion, Deleted: false, PayloadJSON: payloadJSON,
 		}
 		if err := s.changelog.Append(ctx, change); err != nil {
 			return PushOpResult{OpID: opID, Status: domain.PushRejected, Message: err.Error()}
 		}
 		_ = s.changelog.MarkAppliedOp(ctx, tenantID, opID)
+		if s.live != nil {
+			s.live.BroadcastSyncInvalidate(tenantID, entityType)
+		}
 		return PushOpResult{OpID: opID, Status: domain.PushAcked, Version: &newVersion}
 
 	case domain.OpDelete:
@@ -353,6 +398,19 @@ func (s *Service) applyOp(ctx context.Context, tenantID, userID uuid.UUID, devic
 			newVersion = latest.Version + 1
 			payload = latest.PayloadJSON
 		}
+		if s.applicator != nil && s.applicator.Supports(entityType) {
+			applied, aerr := s.applicator.Apply(syncport.WithoutFanout(ctx), syncport.ApplyRequest{
+				TenantID: tenantID, UserID: userID, EntityType: entityType, EntityID: entityID,
+				Op: domain.OpDelete, Payload: op.Payload,
+			})
+			if aerr != nil {
+				return PushOpResult{OpID: opID, Status: domain.PushRejected, Message: aerr.Error()}
+			}
+			payload = marshalPayload(asMap(applied.Payload))
+			if applied.Version > 0 {
+				newVersion = applied.Version
+			}
+		}
 		change := &domain.SyncChange{
 			TenantID: tenantID, EntityType: entityType, EntityID: entityID,
 			Version: newVersion, Deleted: true, PayloadJSON: payload,
@@ -361,10 +419,31 @@ func (s *Service) applyOp(ctx context.Context, tenantID, userID uuid.UUID, devic
 			return PushOpResult{OpID: opID, Status: domain.PushRejected, Message: err.Error()}
 		}
 		_ = s.changelog.MarkAppliedOp(ctx, tenantID, opID)
+		if s.live != nil {
+			s.live.BroadcastSyncInvalidate(tenantID, entityType)
+		}
 		return PushOpResult{OpID: opID, Status: domain.PushAcked, Version: &newVersion}
 	}
 
 	return PushOpResult{OpID: opID, Status: domain.PushRejected, Message: "unsupported op"}
+}
+
+func asMap(v any) map[string]any {
+	if v == nil {
+		return map[string]any{}
+	}
+	if m, ok := v.(map[string]any); ok {
+		return m
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return map[string]any{}
+	}
+	var out map[string]any
+	if err := json.Unmarshal(b, &out); err != nil {
+		return map[string]any{}
+	}
+	return out
 }
 
 func (s *Service) ListConflicts(ctx context.Context, tenantID uuid.UUID, deviceID string) ([]ConflictDTO, error) {
@@ -382,7 +461,7 @@ func (s *Service) ListConflicts(ctx context.Context, tenantID uuid.UUID, deviceI
 func (s *Service) ResolveConflict(ctx context.Context, tenantID, id uuid.UUID, in ResolveConflictInput) (*ConflictDTO, error) {
 	resolution := strings.TrimSpace(in.Resolution)
 	switch resolution {
-	case domain.ResolutionServerWins, domain.ResolutionClientWins:
+	case domain.ResolutionServerWins, domain.ResolutionClientWins, domain.ResolutionMerge:
 	default:
 		return nil, apperrors.ErrValidation
 	}
@@ -394,14 +473,46 @@ func (s *Service) ResolveConflict(ctx context.Context, tenantID, id uuid.UUID, i
 		dto := toConflictDTO(*c)
 		return &dto, nil
 	}
-	if resolution == domain.ResolutionClientWins {
+
+	if resolution == domain.ResolutionClientWins || resolution == domain.ResolutionMerge {
+		payloadMap := map[string]any{}
+		if resolution == domain.ResolutionMerge {
+			if len(in.MergedPayload) == 0 {
+				return nil, apperrors.ErrValidation
+			}
+			payloadMap = in.MergedPayload
+		} else if err := json.Unmarshal([]byte(c.ClientPayload), &payloadMap); err != nil {
+			payloadMap = map[string]any{}
+		}
 		newVersion := c.ServerVersion + 1
 		if newVersion < 1 {
 			newVersion = 1
 		}
+		payloadJSON := marshalPayload(payloadMap)
+		if s.applicator != nil && s.applicator.Supports(c.EntityType) {
+			applyCtx := syncport.WithoutFanout(ctx)
+			applied, aerr := s.applicator.Apply(applyCtx, syncport.ApplyRequest{
+				TenantID: tenantID, UserID: c.UserID, EntityType: c.EntityType, EntityID: c.EntityID,
+				Op: domain.OpUpdate, Payload: payloadMap,
+			})
+			if aerr != nil {
+				// Fall back to create if missing.
+				applied, aerr = s.applicator.Apply(applyCtx, syncport.ApplyRequest{
+					TenantID: tenantID, UserID: c.UserID, EntityType: c.EntityType, EntityID: c.EntityID,
+					Op: domain.OpCreate, Payload: payloadMap,
+				})
+			}
+			if aerr != nil {
+				return nil, aerr
+			}
+			payloadJSON = marshalPayload(asMap(applied.Payload))
+			if applied.Version > 0 {
+				newVersion = applied.Version
+			}
+		}
 		change := &domain.SyncChange{
 			TenantID: tenantID, EntityType: c.EntityType, EntityID: c.EntityID,
-			Version: newVersion, Deleted: false, PayloadJSON: c.ClientPayload,
+			Version: newVersion, Deleted: false, PayloadJSON: payloadJSON,
 		}
 		if err := s.changelog.Append(ctx, change); err != nil {
 			return nil, err
@@ -409,7 +520,11 @@ func (s *Service) ResolveConflict(ctx context.Context, tenantID, id uuid.UUID, i
 		if c.ClientOpID != "" {
 			_ = s.changelog.MarkAppliedOp(ctx, tenantID, c.ClientOpID)
 		}
+		if s.live != nil {
+			s.live.BroadcastSyncInvalidate(tenantID, c.EntityType)
+		}
 	}
+
 	if err := s.conflicts.Resolve(ctx, tenantID, id, resolution); err != nil {
 		return nil, err
 	}
