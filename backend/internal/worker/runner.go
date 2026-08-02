@@ -198,10 +198,15 @@ func (r *Runner) handleNotify(ctx context.Context, env rabbitmqx.Envelope, d amq
 				case "push":
 					if devices, err := r.devices.ListByUser(ctx, tid, uid); err == nil {
 						for _, d := range devices {
-							if d.PushToken != nil && *d.PushToken != "" {
-								to = *d.PushToken
-								break
+							if d.PushToken == nil {
+								continue
 							}
+							tok := strings.TrimSpace(*d.PushToken)
+							if tok == "" || strings.HasPrefix(tok, "stub-push-") {
+								continue
+							}
+							to = tok
+							break
 						}
 					}
 				}

@@ -84,6 +84,14 @@ func NewRouter(cfg config.NotifyConfig, log *slog.Logger) *Router {
 	switch strings.ToLower(strings.TrimSpace(cfg.Push.Driver)) {
 	case "http", "webhook":
 		r.Push = &HTTPWebhookPush{url: cfg.Push.WebhookURL, log: log, client: &http.Client{Timeout: 10 * time.Second}}
+	case "fcm":
+		p, err := NewFCMPush(cfg.Push, log)
+		if err != nil {
+			log.Warn("fcm push misconfigured; falling back to log", "error", err)
+			r.Push = &LogPush{log: log}
+		} else {
+			r.Push = p
+		}
 	default:
 		r.Push = &LogPush{log: log}
 	}

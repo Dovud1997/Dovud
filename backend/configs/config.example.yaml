@@ -42,8 +42,11 @@ notify:
     driver: "log" # log | http
     webhook_url: ""
   push:
-    driver: "log" # log | http (FCM later)
+    driver: "log" # log | http | fcm
     webhook_url: ""
+    project_id: ""
+    credentials_json: ""
+    credentials_file: ""
 
 security:
   cors_origins: "*"
