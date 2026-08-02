@@ -2,12 +2,23 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sfa_app/core/device/push_token_source.dart';
+import 'package:sfa_app/firebase_options.dart';
 
-/// Ensures Firebase is initialized once (no-op when options / plist missing).
+/// Ensures Firebase is initialized once.
+///
+/// Order:
+/// 1. Already initialized
+/// 2. Dart [DefaultFirebaseOptions] when `SFA_FIREBASE_CONFIGURED=true`
+/// 3. Native `google-services.json` / `GoogleService-Info.plist`
+/// 4. Fail → stub push tokens
 Future<bool> ensureFirebaseInitialized() async {
   if (kIsWeb) return false;
   try {
     if (Firebase.apps.isNotEmpty) return true;
+    if (DefaultFirebaseOptions.configured) {
+      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+      return true;
+    }
     await Firebase.initializeApp();
     return true;
   } catch (_) {
@@ -17,10 +28,8 @@ Future<bool> ensureFirebaseInitialized() async {
 
 /// FCM / APNs token source for Android & iOS (APNs via FCM).
 class FcmPushTokenSource implements PushTokenSource {
-  FcmPushTokenSource(Future<String> Function() deviceId)
-      : _deviceId = deviceId;
+  FcmPushTokenSource(Future<String> Function() deviceId) : _deviceId = deviceId;
 
-  // Reserved for stub fallback / diagnostics if FCM returns empty.
   // ignore: unused_field
   final Future<String> Function() _deviceId;
 

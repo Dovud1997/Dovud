@@ -2,7 +2,7 @@
 
 White Label SaaS platform for sales force automation — multi-tenant, offline-capable, enterprise-ready.
 
-**Status:** P15 delivered (SQLite EntityCache + FCM client) on top of P0–P14
+**Status:** P16 delivered (Drift offline DB + Firebase options) on top of P0–P15
 
 ## Architecture
 
@@ -181,9 +181,16 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 - `FcmPushTokenSource` via `firebase_messaging` (APNs through FCM); stub fallback when Firebase is not configured
 - Helm chart `0.15.0`
 
-## Next (P16+)
+**P16 — Drift codegen · outbox tables · Firebase options**
+- Drift `SfaDatabase`: `cached_entities`, `sync_meta`, `outbox_ops` (codegen via `build_runner`)
+- Mobile/desktop: Drift EntityCache + Drift outbox; web keeps encrypted blob
+- `lib/firebase_options.dart` + `google-services.json.example` / `GoogleService-Info.plist.example`
+- Enable with `--dart-define=SFA_FIREBASE_CONFIGURED=true` or native plist/json + Gradle plugin
+- Helm chart `0.16.0`
 
-Drift codegen (`build_runner`) · outbox SQLite tables · Firebase options / google-services wiring
+## Next (P17+)
+
+Background sync worker · conflict UX · Drift web (wasm) · production Firebase project wiring
 
 ## Locales & themes
 
