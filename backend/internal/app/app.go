@@ -192,6 +192,9 @@ func New(cfgPath string) (*Application, error) {
 		syncSvc.WithLocker(redisClient)
 	}
 	liveHub := ws.NewHub(log)
+	if redisClient != nil {
+		liveHub.WithRedis(redisClient.Raw())
+	}
 	syncSvc.WithLive(liveHub)
 	syncSvc.WithApplicator(syncapply.New(customerRepo, orderRepo, visitRepo, returnRepo))
 	crmSvc.WithSync(syncSvc)

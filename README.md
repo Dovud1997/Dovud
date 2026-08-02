@@ -287,7 +287,13 @@ Without Firebase configured, the app falls back to `stub-push-*` tokens (worker 
 - `FileUploadQueue` restores bytes after restart; clears blob after successful upload
 - Helm chart `0.29.0`
 
-Roadmap phases P1–P29 delivered. Optional polish: Redis Pub/Sub WS scale-out, OS background sync, SQLCipher, GPS offline, per-line conflict merge.
+**P30 — Redis Pub/Sub WS fan-out**
+- `Hub.WithRedis` / `EventBus`: local deliver + publish on `sfa:ws:events`
+- Remote instances skip self-origin and deliver to local sockets only
+- In-memory bus for tests; no-op when Redis unavailable
+- Helm chart `0.30.0`
+
+Roadmap phases P1–P30 delivered. Optional polish: OS background sync, SQLCipher, GPS offline, per-line conflict merge.
 
 ## Locales & themes
 
