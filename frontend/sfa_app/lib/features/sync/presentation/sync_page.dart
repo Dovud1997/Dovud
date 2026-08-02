@@ -92,7 +92,8 @@ class _SyncPageState extends ConsumerState<SyncPage> {
                   ListTile(
                     title: const Text('Offline cache'),
                     subtitle: Text(
-                      'products=$productsCached · customers=$customersCached (EntityCache blob; Drift next)',
+                      'products=$productsCached · customers=$customersCached '
+                      '(${ref.watch(offlineStoreProvider).cacheBackendLabel})',
                     ),
                   ),
                   if (_lastPullSummary.isNotEmpty)

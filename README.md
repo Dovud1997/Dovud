@@ -2,7 +2,7 @@
 
 White Label SaaS platform for sales force automation — multi-tenant, offline-capable, enterprise-ready.
 
-**Status:** P14 delivered (Per-device push deliveries) on top of P0–P13
+**Status:** P15 delivered (SQLite EntityCache + FCM client) on top of P0–P14
 
 ## Architecture
 
@@ -175,9 +175,15 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 - Flutter Notifications page expands to show per-device status
 - Helm chart `0.14.0`
 
-## Next (P15+)
+**P15 — SQLite EntityCache · FCM / APNs client**
+- Mobile/desktop: `SqliteEntityCache` (`cached_entities` + `sync_meta`); one-shot migrate from encrypted blob
+- Web Admin keeps encrypted blob `EntityCache` (no sqflite on browser)
+- `FcmPushTokenSource` via `firebase_messaging` (APNs through FCM); stub fallback when Firebase is not configured
+- Helm chart `0.15.0`
 
-Drift/sqflite entity tables · firebase_messaging / APNs client
+## Next (P16+)
+
+Drift codegen (`build_runner`) · outbox SQLite tables · Firebase options / google-services wiring
 
 ## Locales & themes
 
