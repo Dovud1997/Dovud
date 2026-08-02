@@ -47,6 +47,7 @@ import (
 	returnspersist "github.com/Dovud1997/Dovud/backend/internal/modules/returns/infrastructure/persistence"
 	returnshttp "github.com/Dovud1997/Dovud/backend/internal/modules/returns/interfaces/http"
 	syncapp "github.com/Dovud1997/Dovud/backend/internal/modules/sync/application"
+	syncapply "github.com/Dovud1997/Dovud/backend/internal/modules/sync/infrastructure/applicator"
 	syncpersist "github.com/Dovud1997/Dovud/backend/internal/modules/sync/infrastructure/persistence"
 	synchttp "github.com/Dovud1997/Dovud/backend/internal/modules/sync/interfaces/http"
 	tenantapp "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/application"
@@ -192,6 +193,7 @@ func New(cfgPath string) (*Application, error) {
 	}
 	liveHub := ws.NewHub(log)
 	syncSvc.WithLive(liveHub)
+	syncSvc.WithApplicator(syncapply.New(customerRepo, orderRepo, visitRepo))
 	crmSvc.WithSync(syncSvc)
 	ffSvc.WithSync(syncSvc)
 	ordersSvc.WithSync(syncSvc)

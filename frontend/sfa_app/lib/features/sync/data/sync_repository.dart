@@ -114,9 +114,11 @@ class SyncRepository {
   Future<SyncConflict> resolveConflict({
     required String conflictId,
     required String resolution,
+    Map<String, dynamic>? mergedPayload,
   }) async {
     final envelope = await _api.post('/sync/conflicts/$conflictId/resolve', data: {
       'resolution': resolution,
+      if (mergedPayload != null) 'merged_payload': mergedPayload,
     });
     return SyncConflict.fromJson(Map<String, dynamic>.from(envelope['data'] as Map));
   }

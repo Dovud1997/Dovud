@@ -233,7 +233,7 @@ flutter run --dart-define=SFA_FIREBASE_CONFIGURED=true
 
 Without Firebase configured, the app falls back to `stub-push-*` tokens (worker skips them).
 
-## Deferred (post-roadmap)
+## Roadmap delivery notes
 
 **P21 — Domain → sync fan-out · agent writes** *(delivered)*
 - `RecordChange` wired from orders / customers / visits into `sync_change_log`
@@ -252,7 +252,17 @@ Without Firebase configured, the app falls back to `stub-push-*` tokens (worker 
 - Flutter `LiveChannel` + Sync center connection status
 - Helm chart `0.23.0`
 
-Still deferred: sync push applying into domain tables · field-level merge UX
+**P24 — Sync push → domain tables**
+- `EntityApplicator` applies customer / order / visit create·update·delete into domain repos
+- Push & conflict resolve write domain then changelog; `WithoutFanout` avoids double `RecordChange`
+- Helm chart `0.24.0`
+
+**P25 — Field-level conflict merge**
+- Resolve API accepts `resolution=merge` + `merged_payload`
+- Flutter conflict UI: per-field checkboxes (yours vs server) → Apply merge
+- Helm chart `0.25.0`
+
+Roadmap phases P1–P25 delivered. Remaining polish (nested `lines` merge UX, extra WS event types) is optional.
 
 ## Locales & themes
 
