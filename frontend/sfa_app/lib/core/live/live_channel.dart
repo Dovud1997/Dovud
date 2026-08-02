@@ -85,7 +85,8 @@ class LiveChannel {
         type == 'order.updated' ||
         type == 'visit.updated' ||
         type == 'notification.created' ||
-        type == 'product.updated') {
+        type == 'product.updated' ||
+        type == 'return.updated') {
       lastInvalidateAt = DateTime.now().toUtc();
       unawaited(_ref.read(syncWorkerProvider).tick(reason: 'ws:$type'));
     }

@@ -9,29 +9,32 @@ import (
 	crmdomain "github.com/Dovud1997/Dovud/backend/internal/modules/crm/domain"
 	ffdomain "github.com/Dovud1997/Dovud/backend/internal/modules/fieldforce/domain"
 	ordersdomain "github.com/Dovud1997/Dovud/backend/internal/modules/orders/domain"
+	returnsdomain "github.com/Dovud1997/Dovud/backend/internal/modules/returns/domain"
 	apperrors "github.com/Dovud1997/Dovud/backend/internal/platform/errors"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/syncport"
 	"github.com/google/uuid"
 )
 
-// DomainApplicator mutates CRM / orders / visits from sync push ops.
+// DomainApplicator mutates CRM / orders / visits / returns from sync push ops.
 type DomainApplicator struct {
 	customers crmdomain.CustomerRepository
 	orders    ordersdomain.OrderRepository
 	visits    ffdomain.VisitRepository
+	returns   returnsdomain.ReturnRepository
 }
 
 func New(
 	customers crmdomain.CustomerRepository,
 	orders ordersdomain.OrderRepository,
 	visits ffdomain.VisitRepository,
+	returns returnsdomain.ReturnRepository,
 ) *DomainApplicator {
-	return &DomainApplicator{customers: customers, orders: orders, visits: visits}
+	return &DomainApplicator{customers: customers, orders: orders, visits: visits, returns: returns}
 }
 
 func (a *DomainApplicator) Supports(entityType string) bool {
 	switch strings.TrimSpace(strings.ToLower(entityType)) {
-	case "customer", "order", "visit":
+	case "customer", "order", "visit", "return":
 		return true
 	default:
 		return false
@@ -52,6 +55,8 @@ func (a *DomainApplicator) Apply(ctx context.Context, req syncport.ApplyRequest)
 		return a.applyOrder(ctx, req.TenantID, id, op, req.Payload)
 	case "visit":
 		return a.applyVisit(ctx, req.TenantID, id, op, req.Payload)
+	case "return":
+		return a.applyReturn(ctx, req.TenantID, id, op, req.Payload)
 	default:
 		return nil, apperrors.ErrValidation
 	}
@@ -262,6 +267,119 @@ func (a *DomainApplicator) applyVisit(ctx context.Context, tenantID, id uuid.UUI
 			return nil, err
 		}
 		return &syncport.ApplyResult{Payload: visitPayload(v), Version: v.Version, Deleted: true}, nil
+	default:
+		return nil, apperrors.ErrValidation
+	}
+}
+
+func (a *DomainApplicator) applyReturn(ctx context.Context, tenantID, id uuid.UUID, op string, payload map[string]any) (*syncport.ApplyResult, error) {
+	if a.returns == nil {
+		return nil, apperrors.ErrValidation
+	}
+	switch op {
+	case "create":
+		customerID, err := uuid.Parse(strOr(payload, "customer_id", ""))
+		if err != nil {
+			return nil, apperrors.ErrValidation
+		}
+		lines := parseReturnLines(payload)
+		if len(lines) == 0 {
+			return nil, apperrors.ErrValidation
+		}
+		var sub float64
+		for _, l := range lines {
+			sub += l.LineTotal
+		}
+		tax := floatOr(payload, "tax_total", 0)
+		status := strOr(payload, "status", returnsdomain.StatusDraft)
+		if status != returnsdomain.StatusDraft && status != returnsdomain.StatusSubmitted {
+			status = returnsdomain.StatusDraft
+		}
+		ret := &returnsdomain.Return{
+			ID: id, TenantID: tenantID,
+			Number: strOr(payload, "number", fmt.Sprintf("SYNC-%s", id.String()[:8])),
+			CustomerID: customerID, OrderID: uuidPtrOr(payload, "order_id"), AgentID: uuidPtrOr(payload, "agent_id"),
+			Status: status, Reason: strPtrOr(payload, "reason"),
+			Currency: strOr(payload, "currency", "UZS"),
+			Subtotal: sub, TaxTotal: tax, GrandTotal: sub + tax,
+		}
+		if err := a.returns.Create(ctx, ret, lines); err != nil {
+			return nil, err
+		}
+		return &syncport.ApplyResult{Payload: returnPayload(ret, lines), Version: ret.Version}, nil
+	case "update":
+		ret, lines, err := a.returns.FindByID(ctx, tenantID, id)
+		if err != nil {
+			return nil, err
+		}
+		if ret.Status != returnsdomain.StatusDraft {
+			// Allow status-only transitions via payload.status when draft→submitted etc.
+			if st := strOr(payload, "status", ""); st != "" && st != ret.Status {
+				if !ret.CanTransition(st) {
+					return nil, apperrors.ErrConflict
+				}
+				ret.Status = st
+				if payload["reason"] != nil {
+					ret.Reason = strPtrOr(payload, "reason")
+				}
+				if err := a.returns.Update(ctx, ret, nil); err != nil {
+					return nil, err
+				}
+				return &syncport.ApplyResult{Payload: returnPayload(ret, lines), Version: ret.Version}, nil
+			}
+			return nil, apperrors.ErrConflict
+		}
+		if payload["reason"] != nil {
+			ret.Reason = strPtrOr(payload, "reason")
+		}
+		if v := strOr(payload, "currency", ""); v != "" {
+			ret.Currency = strings.ToUpper(v)
+		}
+		if payload["customer_id"] != nil {
+			if cid, err := uuid.Parse(strOr(payload, "customer_id", "")); err == nil {
+				ret.CustomerID = cid
+			}
+		}
+		newLines := lines
+		if payload["lines"] != nil {
+			newLines = parseReturnLines(payload)
+			if len(newLines) == 0 {
+				return nil, apperrors.ErrValidation
+			}
+			var sub float64
+			for _, l := range newLines {
+				sub += l.LineTotal
+			}
+			ret.Subtotal = sub
+			ret.TaxTotal = floatOr(payload, "tax_total", ret.TaxTotal)
+			ret.GrandTotal = ret.Subtotal + ret.TaxTotal
+		}
+		if st := strOr(payload, "status", ""); st != "" && st != ret.Status {
+			if !ret.CanTransition(st) {
+				return nil, apperrors.ErrConflict
+			}
+			ret.Status = st
+		}
+		if err := a.returns.Update(ctx, ret, newLines); err != nil {
+			return nil, err
+		}
+		return &syncport.ApplyResult{Payload: returnPayload(ret, newLines), Version: ret.Version}, nil
+	case "delete":
+		ret, lines, err := a.returns.FindByID(ctx, tenantID, id)
+		if err != nil {
+			return nil, err
+		}
+		if ret.Status == returnsdomain.StatusDraft && ret.CanTransition(returnsdomain.StatusCancelled) {
+			ret.Status = returnsdomain.StatusCancelled
+			if err := a.returns.Update(ctx, ret, nil); err != nil {
+				return nil, err
+			}
+			return &syncport.ApplyResult{Payload: returnPayload(ret, lines), Version: ret.Version, Deleted: true}, nil
+		}
+		if err := a.returns.SoftDelete(ctx, tenantID, id); err != nil {
+			return nil, err
+		}
+		return &syncport.ApplyResult{Payload: map[string]any{"id": id.String()}, Version: 0, Deleted: true}, nil
 	default:
 		return nil, apperrors.ErrValidation
 	}

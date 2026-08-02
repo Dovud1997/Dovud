@@ -228,6 +228,7 @@ func TestPushCreateCustomerAppliesDomain(t *testing.T) {
 		crmpersist.NewCustomerRepo(db),
 		nil,
 		nil,
+		nil,
 	))
 	// orders/visits nil — only customer supported path used
 	tenantID := uuid.New()
@@ -281,7 +282,7 @@ func TestResolveConflictMergeAppliesDomain(t *testing.T) {
 		syncpersist.NewDeviceRepo(db),
 		cl,
 		syncpersist.NewConflictRepo(db),
-	).WithApplicator(applicator.New(customers, nil, nil))
+	).WithApplicator(applicator.New(customers, nil, nil, nil))
 
 	tenantID := uuid.New()
 	userID := uuid.New()
