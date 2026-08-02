@@ -186,6 +186,9 @@ func New(cfgPath string) (*Application, error) {
 	returnsSvc := returnsapp.NewService(returnRepo)
 	financeSvc := financeapp.NewService(receivableRepo, creditLimitRepo)
 	syncSvc := syncapp.NewService(syncDeviceRepo, syncChangeRepo, syncConflictRepo)
+	if redisClient != nil {
+		syncSvc.WithLocker(redisClient)
+	}
 	crmSvc.WithSync(syncSvc)
 	ffSvc.WithSync(syncSvc)
 	ordersSvc.WithSync(syncSvc)

@@ -8,6 +8,7 @@ import (
 	"github.com/Dovud1997/Dovud/backend/internal/modules/sync/application"
 	"github.com/Dovud1997/Dovud/backend/internal/modules/sync/domain"
 	syncpersist "github.com/Dovud1997/Dovud/backend/internal/modules/sync/infrastructure/persistence"
+	apperrors "github.com/Dovud1997/Dovud/backend/internal/platform/errors"
 	"github.com/glebarez/sqlite"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -156,6 +157,50 @@ func TestConflictClientWinsAppearsOnPull(t *testing.T) {
 	if last == nil || last["number"] != "MINE" {
 		t.Fatalf("expected client payload on pull, got %v (changes=%d)", last, len(pull.Changes))
 	}
+}
+
+func TestPushRespectsDeviceLock(t *testing.T) {
+	svc := setupSyncService(t)
+	locker := &memLocker{held: map[string]string{}}
+	svc.WithLocker(locker)
+	tenantID := uuid.New()
+	userID := uuid.New()
+	deviceID := "locked-device"
+	ctx := context.Background()
+	if _, err := svc.Bootstrap(ctx, tenantID, userID, application.BootstrapInput{DeviceID: deviceID}); err != nil {
+		t.Fatal(err)
+	}
+	key := "sync:lock:" + tenantID.String() + ":" + deviceID
+	locker.held[key] = "other"
+	_, err := svc.Push(ctx, tenantID, userID, application.PushInput{
+		DeviceID: deviceID,
+		Ops: []domain.SyncOp{{
+			OpID: uuid.New().String(), EntityType: "note", EntityID: "n1",
+			Op: domain.OpCreate, Payload: map[string]any{"t": 1}, ClientTS: time.Now().UTC(),
+		}},
+	})
+	if err != apperrors.ErrRateLimited {
+		t.Fatalf("expected rate limited, got %v", err)
+	}
+}
+
+type memLocker struct {
+	held map[string]string
+}
+
+func (m *memLocker) TryLock(_ context.Context, key, token string, _ time.Duration) (bool, error) {
+	if _, ok := m.held[key]; ok {
+		return false, nil
+	}
+	m.held[key] = token
+	return true, nil
+}
+
+func (m *memLocker) Unlock(_ context.Context, key, token string) error {
+	if m.held[key] == token {
+		delete(m.held, key)
+	}
+	return nil
 }
 
 func strPtr(s string) *string { return &s }

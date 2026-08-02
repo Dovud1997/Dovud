@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -12,14 +13,25 @@ import (
 	"github.com/google/uuid"
 )
 
+type DeviceLocker interface {
+	TryLock(ctx context.Context, key, token string, ttl time.Duration) (bool, error)
+	Unlock(ctx context.Context, key, token string) error
+}
+
 type Service struct {
 	devices   domain.DeviceRepository
 	changelog domain.ChangeLogRepository
 	conflicts domain.ConflictRepository
+	locker    DeviceLocker
 }
 
 func NewService(devices domain.DeviceRepository, changelog domain.ChangeLogRepository, conflicts domain.ConflictRepository) *Service {
 	return &Service{devices: devices, changelog: changelog, conflicts: conflicts}
+}
+
+func (s *Service) WithLocker(locker DeviceLocker) *Service {
+	s.locker = locker
+	return s
 }
 
 type BootstrapInput struct {
@@ -207,6 +219,21 @@ func (s *Service) Push(ctx context.Context, tenantID, userID uuid.UUID, in PushI
 			return nil, err
 		}
 	}
+
+	unlock := func() {}
+	if s.locker != nil {
+		lockKey := fmt.Sprintf("sync:lock:%s:%s", tenantID.String(), deviceID)
+		token := uuid.NewString()
+		ok, err := s.locker.TryLock(ctx, lockKey, token, 30*time.Second)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, apperrors.ErrRateLimited
+		}
+		unlock = func() { _ = s.locker.Unlock(ctx, lockKey, token) }
+	}
+	defer unlock()
 
 	results := make([]PushOpResult, 0, len(in.Ops))
 	for _, op := range in.Ops {
