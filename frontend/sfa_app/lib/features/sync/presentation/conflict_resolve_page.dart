@@ -112,6 +112,19 @@ class _ConflictResolvePageState extends ConsumerState<ConflictResolvePage> {
     }
   }
 
+  String _linesSummary(dynamic v) {
+    if (v is! List) return _pretty(v);
+    if (v.isEmpty) return '0 lines';
+    final parts = v.take(5).map((e) {
+      if (e is Map) {
+        return '${e['product_id'] ?? '?'}×${e['qty'] ?? '?'}';
+      }
+      return '$e';
+    }).toList();
+    final more = v.length > 5 ? ' +${v.length - 5} more' : '';
+    return '${v.length} lines: ${parts.join(', ')}$more';
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = _conflict;
@@ -144,8 +157,11 @@ class _ConflictResolvePageState extends ConsumerState<ConflictResolvePage> {
                                   : (v) => setState(() => _pickClient[key] = v ?? true),
                               title: Text(key),
                               subtitle: Text(
-                                'server: ${_pretty(c.serverPayload[key])}\n'
-                                'yours: ${_pretty(c.clientPayload[key])}',
+                                key == 'lines'
+                                    ? 'server: ${_linesSummary(c.serverPayload[key])}\n'
+                                        'yours: ${_linesSummary(c.clientPayload[key])}'
+                                    : 'server: ${_pretty(c.serverPayload[key])}\n'
+                                        'yours: ${_pretty(c.clientPayload[key])}',
                               ),
                               secondary: Text(pickMine ? 'Yours' : 'Server'),
                             );

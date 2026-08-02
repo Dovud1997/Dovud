@@ -197,6 +197,7 @@ func New(cfgPath string) (*Application, error) {
 	crmSvc.WithSync(syncSvc)
 	ffSvc.WithSync(syncSvc)
 	ordersSvc.WithSync(syncSvc)
+	catalogSvc.WithSync(syncSvc)
 	notifySvc := notifyapp.NewService(notifyRepo, outboxStore)
 	analyticsSvc := analyticsapp.NewService(kpiRepo, db)
 	auditSvc := auditapp.NewService(auditRepo, outboxStore)

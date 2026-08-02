@@ -2,6 +2,7 @@ package seed
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"strings"
 
@@ -31,6 +32,8 @@ import (
 	portalpersist "github.com/Dovud1997/Dovud/backend/internal/modules/portal/infrastructure/persistence"
 	returnsdomain "github.com/Dovud1997/Dovud/backend/internal/modules/returns/domain"
 	returnspersist "github.com/Dovud1997/Dovud/backend/internal/modules/returns/infrastructure/persistence"
+	syncdomain "github.com/Dovud1997/Dovud/backend/internal/modules/sync/domain"
+	syncpersist "github.com/Dovud1997/Dovud/backend/internal/modules/sync/infrastructure/persistence"
 	tenantdomain "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/domain"
 	tenantpersist "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/infrastructure/persistence"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/auth"
@@ -337,7 +340,71 @@ func seedBusinessDemo(ctx context.Context, db *gorm.DB, tenantID uuid.UUID, log 
 		customerID = customers[0].ID
 	}
 
-	return seedFieldAndOrders(ctx, db, tenantID, branchID, customerID, productID, log)
+	if err := seedFieldAndOrders(ctx, db, tenantID, branchID, customerID, productID, log); err != nil {
+		return err
+	}
+	return seedSyncDemoEntities(ctx, db, tenantID, customerID, productID, log)
+}
+
+func ensureSyncChange(ctx context.Context, db *gorm.DB, tenantID uuid.UUID, entityType, entityID string, version int64, payload any) error {
+	cl := syncpersist.NewChangeLogRepo(db)
+	if _, err := cl.FindLatest(ctx, tenantID, entityType, entityID); err == nil {
+		return nil
+	}
+	raw := "{}"
+	if payload != nil {
+		b, err := json.Marshal(payload)
+		if err != nil {
+			return err
+		}
+		raw = string(b)
+	}
+	if version < 1 {
+		version = 1
+	}
+	return cl.Append(ctx, &syncdomain.SyncChange{
+		TenantID: tenantID, EntityType: entityType, EntityID: entityID,
+		Version: version, PayloadJSON: raw,
+	})
+}
+
+func seedSyncDemoEntities(ctx context.Context, db *gorm.DB, tenantID, customerID, productID uuid.UUID, log *slog.Logger) error {
+	productRepo := catalogpersist.NewProductRepo(db)
+	priceRepo := catalogpersist.NewPriceRepo(db)
+	customerRepo := crmpersist.NewCustomerRepo(db)
+
+	if p, err := productRepo.FindByID(ctx, tenantID, productID); err == nil {
+		_ = ensureSyncChange(ctx, db, tenantID, "product", p.ID.String(), p.Version, map[string]any{
+			"id": p.ID.String(), "sku": p.SKU, "name": p.Name, "unit": p.Unit,
+			"vat_rate": p.VATRate, "is_active": p.IsActive, "version": p.Version,
+		})
+	}
+	if lists, err := priceRepo.ListPriceLists(ctx, tenantID); err == nil && len(lists) > 0 {
+		pl := lists[0]
+		for _, l := range lists {
+			if l.IsDefault {
+				pl = l
+				break
+			}
+		}
+		if prices, err := priceRepo.ListPrices(ctx, tenantID, pl.ID); err == nil {
+			for _, pr := range prices {
+				_ = ensureSyncChange(ctx, db, tenantID, "product_price", pr.ID.String(), pr.Version, map[string]any{
+					"id": pr.ID.String(), "product_id": pr.ProductID.String(),
+					"amount": pr.Amount, "currency": pr.Currency, "version": pr.Version,
+					"price_list_id": pl.ID.String(),
+				})
+			}
+		}
+	}
+	if c, err := customerRepo.FindByID(ctx, tenantID, customerID); err == nil {
+		_ = ensureSyncChange(ctx, db, tenantID, "customer", c.ID.String(), c.Version, map[string]any{
+			"id": c.ID.String(), "code": c.Code, "name": c.Name, "type": c.Type,
+			"status": c.Status, "version": c.Version,
+		})
+	}
+	log.Info("seeded sync changelog for demo catalog/customer")
+	return nil
 }
 
 func seedFieldAndOrders(ctx context.Context, db *gorm.DB, tenantID, branchID, customerID, productID uuid.UUID, log *slog.Logger) error {

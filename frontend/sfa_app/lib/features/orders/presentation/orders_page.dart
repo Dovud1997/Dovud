@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sfa_app/core/offline/agent_write_coordinator.dart';
-import 'package:sfa_app/features/crm/data/crm_repository.dart';
+import 'package:go_router/go_router.dart';
 import 'package:sfa_app/features/orders/data/orders_repository.dart';
 
 final ordersProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
@@ -18,46 +17,12 @@ class OrdersPage extends ConsumerStatefulWidget {
 class _OrdersPageState extends ConsumerState<OrdersPage> {
   bool _busy = false;
 
-  Future<void> _createDraft() async {
-    setState(() => _busy = true);
-    try {
-      final customers = await ref.read(crmRepositoryProvider).listCustomers();
-      if (customers.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Create a customer first')),
-          );
-        }
-        return;
-      }
-      final customerId = customers.first['id']?.toString() ?? '';
-      if (customerId.isEmpty) return;
-      final reqId = 'flutter-${DateTime.now().microsecondsSinceEpoch}';
-      await ref.read(agentWriteCoordinatorProvider).write(
-            entityType: 'order',
-            op: 'create',
-            payload: {
-              'customer_id': customerId,
-              'currency': 'UZS',
-              'status': 'draft',
-              'client_request_id': reqId,
-              'lines': const <Map<String, dynamic>>[],
-            },
-            online: () => ref.read(ordersRepositoryProvider).createDraft(
-                  customerId: customerId,
-                  clientRequestId: reqId,
-                ),
-          );
+  Future<void> _compose() async {
+    final path = GoRouterState.of(context).uri.path;
+    final base = path.startsWith('/field') ? '/field/orders' : '/orders';
+    final created = await context.push<bool>('$base/new');
+    if (created == true) {
       ref.invalidate(ordersProvider);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Draft order created')));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -81,8 +46,8 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Orders')),
       floatingActionButton: FloatingActionButton(
-        onPressed: _busy ? null : _createDraft,
-        child: _busy ? const CircularProgressIndicator() : const Icon(Icons.add_shopping_cart),
+        onPressed: _busy ? null : _compose,
+        child: const Icon(Icons.add_shopping_cart),
       ),
       body: async.when(
         data: (items) => items.isEmpty
@@ -93,9 +58,17 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
                 itemBuilder: (context, i) {
                   final o = items[i];
                   final status = o['status']?.toString() ?? '';
+                  final lines = o['lines'];
+                  final lineCount = lines is List ? lines.length : null;
                   return ListTile(
                     title: Text(o['number']?.toString() ?? ''),
-                    subtitle: Text('$status · ${o['currency'] ?? ''} ${o['grand_total'] ?? ''}'),
+                    subtitle: Text(
+                      [
+                        status,
+                        if (lineCount != null) '$lineCount lines',
+                        '${o['currency'] ?? ''} ${o['grand_total'] ?? ''}',
+                      ].join(' · '),
+                    ),
                     trailing: status == 'draft'
                         ? TextButton(
                             onPressed: _busy ? null : () => _submit(o['id']?.toString() ?? ''),

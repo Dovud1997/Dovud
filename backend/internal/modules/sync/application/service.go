@@ -21,6 +21,7 @@ type DeviceLocker interface {
 
 type LiveNotifier interface {
 	BroadcastSyncInvalidate(tenantID uuid.UUID, entityTypes ...string)
+	Publish(tenantID uuid.UUID, eventType string, payload map[string]any)
 }
 
 type Service struct {
@@ -592,6 +593,29 @@ func (s *Service) RecordChange(ctx context.Context, tenantID uuid.UUID, entityTy
 	}
 	if s.live != nil {
 		s.live.BroadcastSyncInvalidate(tenantID, entityType)
+		if evt := domainLiveEvent(entityType); evt != "" {
+			s.live.Publish(tenantID, evt, map[string]any{
+				"entity_type": entityType,
+				"entity_id":   entityID,
+				"version":     version,
+				"deleted":     deleted,
+			})
+		}
 	}
 	return nil
+}
+
+func domainLiveEvent(entityType string) string {
+	switch strings.ToLower(strings.TrimSpace(entityType)) {
+	case "order":
+		return "order.updated"
+	case "visit":
+		return "visit.updated"
+	case "product", "product_price":
+		return "product.updated"
+	case "notification":
+		return "notification.created"
+	default:
+		return ""
+	}
 }

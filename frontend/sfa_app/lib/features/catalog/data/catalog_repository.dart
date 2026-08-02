@@ -24,4 +24,17 @@ class CatalogRepository {
     final data = envelope['data'] as List<dynamic>? ?? const [];
     return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
+
+  Future<List<Map<String, dynamic>>> listPriceLists() async {
+    final envelope = await _api.get('/price-lists');
+    final data = envelope['data'] as List<dynamic>? ?? const [];
+    return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> listPrices(String priceListId) async {
+    if (priceListId.isEmpty) return const [];
+    final envelope = await _api.get('/price-lists/$priceListId/prices');
+    final data = envelope['data'] as List<dynamic>? ?? const [];
+    return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
 }

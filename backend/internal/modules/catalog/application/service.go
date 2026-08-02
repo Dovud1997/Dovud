@@ -7,6 +7,7 @@ import (
 
 	"github.com/Dovud1997/Dovud/backend/internal/modules/catalog/domain"
 	apperrors "github.com/Dovud1997/Dovud/backend/internal/platform/errors"
+	"github.com/Dovud1997/Dovud/backend/internal/platform/syncport"
 	"github.com/google/uuid"
 )
 
@@ -16,6 +17,7 @@ type Service struct {
 	products      domain.ProductRepository
 	prices        domain.PriceRepository
 	promotions    domain.PromotionRepository
+	sync          syncport.ChangeRecorder
 }
 
 func NewService(
@@ -26,6 +28,25 @@ func NewService(
 	promo domain.PromotionRepository,
 ) *Service {
 	return &Service{manufacturers: m, categories: c, products: p, prices: pr, promotions: promo}
+}
+
+func (s *Service) WithSync(rec syncport.ChangeRecorder) *Service {
+	s.sync = rec
+	return s
+}
+
+func (s *Service) recordProduct(ctx context.Context, tenantID uuid.UUID, dto *ProductDTO) {
+	if s.sync == nil || dto == nil || !syncport.ShouldFanout(ctx) {
+		return
+	}
+	_ = s.sync.RecordChange(ctx, tenantID, "product", dto.ID.String(), dto.Version, false, dto)
+}
+
+func (s *Service) recordPrice(ctx context.Context, tenantID uuid.UUID, dto *PriceDTO) {
+	if s.sync == nil || dto == nil || !syncport.ShouldFanout(ctx) {
+		return
+	}
+	_ = s.sync.RecordChange(ctx, tenantID, "product_price", dto.ID.String(), dto.Version, false, dto)
 }
 
 type ManufacturerDTO struct {
@@ -223,6 +244,7 @@ func (s *Service) CreateProduct(ctx context.Context, tenantID uuid.UUID, in Prod
 		return nil, err
 	}
 	dto := toProductDTO(*p)
+	s.recordProduct(ctx, tenantID, &dto)
 	return &dto, nil
 }
 
@@ -256,11 +278,18 @@ func (s *Service) UpdateProduct(ctx context.Context, tenantID, id uuid.UUID, in 
 		return nil, err
 	}
 	dto := toProductDTO(*p)
+	s.recordProduct(ctx, tenantID, &dto)
 	return &dto, nil
 }
 
 func (s *Service) DeleteProduct(ctx context.Context, tenantID, id uuid.UUID) error {
-	return s.products.SoftDelete(ctx, tenantID, id)
+	if err := s.products.SoftDelete(ctx, tenantID, id); err != nil {
+		return err
+	}
+	if s.sync != nil && syncport.ShouldFanout(ctx) {
+		_ = s.sync.RecordChange(ctx, tenantID, "product", id.String(), 0, true, map[string]any{"id": id.String()})
+	}
+	return nil
 }
 
 type PriceListDTO struct {
@@ -378,7 +407,9 @@ func (s *Service) UpsertPrice(ctx context.Context, tenantID, priceListID uuid.UU
 	if err := s.prices.UpsertPrice(ctx, price); err != nil {
 		return nil, err
 	}
-	return &PriceDTO{ID: price.ID, ProductID: price.ProductID, Amount: price.Amount, Currency: price.Currency, ValidFrom: price.ValidFrom, ValidTo: price.ValidTo, Version: price.Version}, nil
+	dto := &PriceDTO{ID: price.ID, ProductID: price.ProductID, Amount: price.Amount, Currency: price.Currency, ValidFrom: price.ValidFrom, ValidTo: price.ValidTo, Version: price.Version}
+	s.recordPrice(ctx, tenantID, dto)
+	return dto, nil
 }
 
 type PromotionDTO struct {
