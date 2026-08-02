@@ -5,14 +5,17 @@ import (
 	"strings"
 
 	"github.com/Dovud1997/Dovud/backend/internal/modules/tenant/domain"
+	"github.com/Dovud1997/Dovud/backend/internal/platform/crypto"
 	apperrors "github.com/Dovud1997/Dovud/backend/internal/platform/errors"
 	"github.com/google/uuid"
 )
 
 type TenantService struct {
-	tenants  domain.TenantRepository
-	branding domain.BrandingRepository
-	domains  domain.DomainRepository
+	tenants   domain.TenantRepository
+	branding  domain.BrandingRepository
+	domains   domain.DomainRepository
+	providers domain.ProviderRepository
+	box       *crypto.SecretBox
 }
 
 func NewTenantService(
@@ -21,6 +24,12 @@ func NewTenantService(
 	domains domain.DomainRepository,
 ) *TenantService {
 	return &TenantService{tenants: tenants, branding: branding, domains: domains}
+}
+
+func (s *TenantService) WithProviders(providers domain.ProviderRepository, box *crypto.SecretBox) *TenantService {
+	s.providers = providers
+	s.box = box
+	return s
 }
 
 type TenantDTO struct {

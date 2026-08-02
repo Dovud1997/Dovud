@@ -42,6 +42,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&tenantpersist.TenantModel{},
 		&tenantpersist.BrandingModel{},
 		&tenantpersist.DomainModel{},
+		&tenantpersist.ProviderModel{},
 		&identitypersist.PermissionModel{},
 		&identitypersist.RoleModel{},
 		&identitypersist.RolePermissionModel{},

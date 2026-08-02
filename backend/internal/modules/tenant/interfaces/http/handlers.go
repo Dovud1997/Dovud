@@ -36,6 +36,9 @@ func (h *Handler) RegisterProtected(r fiber.Router) {
 	r.Get("/tenant/domains", httpx.RequirePermissions("tenant:read"), h.ListDomains)
 	r.Post("/tenant/domains", httpx.RequirePermissions("tenant:write"), h.AddDomain)
 	r.Delete("/tenant/domains/:id", httpx.RequirePermissions("tenant:write"), h.DeleteDomain)
+	r.Get("/tenant/providers", httpx.RequirePermissions("tenant:read"), h.ListProviders)
+	r.Put("/tenant/providers/:type", httpx.RequirePermissions("tenant:write"), h.UpsertProvider)
+	r.Post("/tenant/providers/:type/test", httpx.RequirePermissions("tenant:write"), h.TestProvider)
 }
 
 func (h *Handler) PublicBranding(c *fiber.Ctx) error {
@@ -145,6 +148,47 @@ func (h *Handler) DeleteDomain(c *fiber.Ctx) error {
 		return httpx.Fail(c, err)
 	}
 	if err := h.svc.DeleteDomain(c.Context(), claims.TenantID, id); err != nil {
+		return httpx.Fail(c, err)
+	}
+	return httpx.OK(c, fiber.Map{"ok": true})
+}
+
+func (h *Handler) ListProviders(c *fiber.Ctx) error {
+	claims, err := httpx.ClaimsFromCtx(c)
+	if err != nil {
+		return httpx.Fail(c, err)
+	}
+	res, err := h.svc.ListProviders(c.Context(), claims.TenantID)
+	if err != nil {
+		return httpx.Fail(c, err)
+	}
+	return httpx.OK(c, res)
+}
+
+func (h *Handler) UpsertProvider(c *fiber.Ctx) error {
+	claims, err := httpx.ClaimsFromCtx(c)
+	if err != nil {
+		return httpx.Fail(c, err)
+	}
+	var in application.UpsertProviderInput
+	if err := c.BodyParser(&in); err != nil {
+		return httpx.Fail(c, err)
+	}
+	res, err := h.svc.UpsertProvider(c.Context(), claims.TenantID, c.Params("type"), in)
+	if err != nil {
+		return httpx.Fail(c, err)
+	}
+	return httpx.OK(c, res)
+}
+
+func (h *Handler) TestProvider(c *fiber.Ctx) error {
+	claims, err := httpx.ClaimsFromCtx(c)
+	if err != nil {
+		return httpx.Fail(c, err)
+	}
+	var in application.TestProviderInput
+	_ = c.BodyParser(&in)
+	if err := h.svc.TestProvider(c.Context(), claims.TenantID, c.Params("type"), in); err != nil {
 		return httpx.Fail(c, err)
 	}
 	return httpx.OK(c, fiber.Map{"ok": true})

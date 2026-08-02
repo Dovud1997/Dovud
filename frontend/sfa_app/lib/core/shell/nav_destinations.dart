@@ -28,8 +28,10 @@ const adminDestinationCatalog = <AdminDestination>[
   AdminDestination(path: '/receivables', label: 'Finance', icon: Icons.account_balance_wallet_outlined, branchIndex: 7, permission: 'finance:read'),
   AdminDestination(path: '/documents', label: 'Documents', icon: Icons.folder_outlined, branchIndex: 8, permission: 'documents:read'),
   AdminDestination(path: '/audit', label: 'Audit', icon: Icons.policy_outlined, branchIndex: 9, permission: 'audit:read'),
-  AdminDestination(path: '/sync', label: 'Sync', icon: Icons.sync_outlined, branchIndex: 10, permission: 'sync:use'),
-  AdminDestination(path: '/notifications', label: 'Alerts', icon: Icons.notifications_outlined, branchIndex: 11, permission: 'notifications:read'),
+  AdminDestination(path: '/providers', label: 'Providers', icon: Icons.tune_outlined, branchIndex: 10, permission: 'tenant:read'),
+  AdminDestination(path: '/portal-links', label: 'Portal links', icon: Icons.link_outlined, branchIndex: 11, permission: 'portal:write'),
+  AdminDestination(path: '/sync', label: 'Sync', icon: Icons.sync_outlined, branchIndex: 12, permission: 'sync:use'),
+  AdminDestination(path: '/notifications', label: 'Alerts', icon: Icons.notifications_outlined, branchIndex: 13, permission: 'notifications:read'),
 ];
 
 List<AdminDestination> adminDestinationsFor(AuthUser? user) {

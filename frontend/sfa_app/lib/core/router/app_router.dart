@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sfa_app/core/shell/admin_shell.dart';
+import 'package:sfa_app/core/shell/agent_shell.dart';
+import 'package:sfa_app/features/agent/presentation/agent_more_page.dart';
 import 'package:sfa_app/features/audit/presentation/audit_page.dart';
 import 'package:sfa_app/features/auth/presentation/auth_controller.dart';
 import 'package:sfa_app/features/auth/presentation/login_page.dart';
@@ -14,9 +16,11 @@ import 'package:sfa_app/features/finance/presentation/receivables_page.dart';
 import 'package:sfa_app/features/notifications/presentation/notifications_page.dart';
 import 'package:sfa_app/features/orders/presentation/orders_page.dart';
 import 'package:sfa_app/features/organization/presentation/branches_page.dart';
+import 'package:sfa_app/features/portal/presentation/portal_links_page.dart';
 import 'package:sfa_app/features/portal/presentation/portal_page.dart';
 import 'package:sfa_app/features/returns/presentation/returns_page.dart';
 import 'package:sfa_app/features/sync/presentation/sync_page.dart';
+import 'package:sfa_app/features/tenant/presentation/providers_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final session = ref.watch(sessionControllerProvider);
@@ -27,19 +31,61 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (session.loading) return null;
       final loggingIn = state.matchedLocation == '/login';
       if (!session.isAuthenticated && !loggingIn) return '/login';
-      final isPortal = session.session?.user.isPortal ?? false;
+      final user = session.session?.user;
+      final isPortal = user?.isPortal ?? false;
+      final isAgent = user?.isAgent ?? false;
+      final loc = state.matchedLocation;
+
       if (session.isAuthenticated && loggingIn) {
-        return isPortal ? '/portal' : '/dashboard';
+        if (isPortal) return '/portal';
+        if (isAgent) return '/home';
+        return '/dashboard';
       }
       if (session.isAuthenticated && isPortal) {
-        final loc = state.matchedLocation;
         if (loc != '/portal' && loc != '/login') return '/portal';
+      }
+      if (session.isAuthenticated && isAgent) {
+        final ok = loc == '/home' ||
+            loc.startsWith('/field/') ||
+            loc == '/more' ||
+            loc == '/login';
+        if (!ok) return '/home';
       }
       return null;
     },
     routes: [
       GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
       GoRoute(path: '/portal', builder: (context, state) => const PortalPage()),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) => AgentShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/home', builder: (context, state) => const DashboardPage()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/field/customers', builder: (context, state) => const CustomersPage()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/field/orders', builder: (context, state) => const OrdersPage()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/field/routes', builder: (context, state) => const RoutesPage()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/more',
+              builder: (context, state) => const AgentMorePage(),
+              routes: [
+                GoRoute(path: 'sync', builder: (context, state) => const SyncPage()),
+                GoRoute(path: 'notifications', builder: (context, state) => const NotificationsPage()),
+              ],
+            ),
+          ]),
+        ],
+      ),
+      // nested under /more as /more/sync — agent more page uses /field/sync; fix paths
+      GoRoute(path: '/field/sync', builder: (context, state) => const SyncPage()),
+      GoRoute(path: '/field/notifications', builder: (context, state) => const NotificationsPage()),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) => AdminShell(navigationShell: navigationShell),
         branches: [
@@ -72,6 +118,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ]),
           StatefulShellBranch(routes: [
             GoRoute(path: '/audit', builder: (context, state) => const AuditPage()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/providers', builder: (context, state) => const ProvidersPage()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/portal-links', builder: (context, state) => const PortalLinksPage()),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(path: '/sync', builder: (context, state) => const SyncPage()),

@@ -43,6 +43,32 @@ type Domain struct {
 	UpdatedAt time.Time
 }
 
+const (
+	ProviderSMTP = "smtp"
+	ProviderSMS  = "sms"
+	ProviderPush = "push"
+)
+
+type TenantProvider struct {
+	ID        uuid.UUID
+	TenantID  uuid.UUID
+	Type      string
+	Driver    string
+	ConfigEnc string
+	IsEnabled bool
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func ValidProviderType(t string) bool {
+	switch t {
+	case ProviderSMTP, ProviderSMS, ProviderPush:
+		return true
+	default:
+		return false
+	}
+}
+
 type PublicBranding struct {
 	TenantCode       string  `json:"tenant_code"`
 	TenantName       string  `json:"tenant_name"`

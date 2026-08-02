@@ -2,7 +2,7 @@
 
 White Label SaaS platform for sales force automation — multi-tenant, offline-capable, enterprise-ready.
 
-**Status:** P8 delivered (Admin shell · Devices/push · SMS drivers · Encrypted offline) on top of P0–P7
+**Status:** P9 delivered (Tenant providers · AgentShell · Portal links admin) on top of P0–P8
 
 ## Architecture
 
@@ -117,9 +117,17 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 - Offline cache/outbox encrypted via secure key + SharedPreferences
 - Helm chart `0.8.0`
 
-## Next (P9+)
+**P9 — Tenant providers / AgentShell / Portal links admin**
+- `tenant_providers` table + AES-GCM encrypted configs
+- API: `GET/PUT /tenant/providers`, `POST /tenant/providers/:type/test`
+- Worker merges per-tenant SMTP/SMS/Push overrides over global notify config
+- Flutter Providers admin page + Portal links admin
+- AgentShell bottom nav for `sales_agent` (Home · Customers · Orders · Route · More)
+- Helm chart `0.9.0`
 
-Drift/Isar local DB · real FCM/APNs · tenant provider configs UI · agent bottom nav
+## Next (P10+)
+
+Drift/Isar local DB · real FCM/APNs · users/roles admin UI · branding studio
 
 ## Locales & themes
 

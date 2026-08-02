@@ -39,5 +39,7 @@ class AuthUser {
 
   bool get isPortal => roles.contains('customer_portal');
 
+  bool get isAgent => roles.contains('sales_agent') && !isAdmin && !isPortal;
+
   bool can(String permission) => permissions.contains(permission);
 }

@@ -15,9 +15,12 @@ import (
 
 	docspersist "github.com/Dovud1997/Dovud/backend/internal/modules/documents/infrastructure/persistence"
 	identitypersist "github.com/Dovud1997/Dovud/backend/internal/modules/identity/infrastructure/persistence"
-	notifypersist "github.com/Dovud1997/Dovud/backend/internal/modules/notifications/infrastructure/persistence"
 	notifydomain "github.com/Dovud1997/Dovud/backend/internal/modules/notifications/domain"
+	notifypersist "github.com/Dovud1997/Dovud/backend/internal/modules/notifications/infrastructure/persistence"
+	tenantapp "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/application"
+	tenantpersist "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/infrastructure/persistence"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/config"
+	"github.com/Dovud1997/Dovud/backend/internal/platform/crypto"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/database"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/logger"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/media"
@@ -37,12 +40,13 @@ type Runner struct {
 	outbox   *outbox.Store
 	mq       *rabbitmqx.Client
 	store    storage.ObjectStore
-	notify   *notify.Router
-	files    *docspersist.FileRepo
-	notifs   *notifypersist.NotificationRepo
-	users    *identitypersist.UserRepo
-	devices  *identitypersist.DeviceRepo
-	seen     sync.Map
+	notify    *notify.Router
+	files     *docspersist.FileRepo
+	notifs    *notifypersist.NotificationRepo
+	users     *identitypersist.UserRepo
+	devices   *identitypersist.DeviceRepo
+	tenantSvc *tenantapp.TenantService
+	seen      sync.Map
 }
 
 func New(cfgPath string) (*Runner, error) {
@@ -60,6 +64,7 @@ func New(cfgPath string) (*Runner, error) {
 		&docspersist.FileModel{},
 		&notifypersist.NotificationModel{},
 		&notifypersist.NotificationDeliveryModel{},
+		&tenantpersist.ProviderModel{},
 	); err != nil {
 		return nil, err
 	}
@@ -71,11 +76,21 @@ func New(cfgPath string) (*Runner, error) {
 	if err != nil {
 		log.Warn("worker storage unavailable", "error", err)
 	}
+	box, err := crypto.NewSecretBox(cfg.Auth.AccessSecret)
+	if err != nil {
+		return nil, err
+	}
+	tenantSvc := tenantapp.NewTenantService(
+		tenantpersist.NewTenantRepo(db),
+		tenantpersist.NewBrandingRepo(db),
+		tenantpersist.NewDomainRepo(db),
+	).WithProviders(tenantpersist.NewProviderRepo(db), box)
 	return &Runner{
 		cfg: cfg, log: log, db: db, outbox: outbox.NewStore(db), mq: mq,
 		store: store, notify: notify.NewRouter(cfg.Notify, log),
 		files: docspersist.NewFileRepo(db), notifs: notifypersist.NewNotificationRepo(db),
 		users: identitypersist.NewUserRepo(db), devices: identitypersist.NewDeviceRepo(db),
+		tenantSvc: tenantSvc,
 	}, nil
 }
 
@@ -194,7 +209,14 @@ func (r *Runner) handleNotify(ctx context.Context, env rabbitmqx.Envelope, d amq
 		}
 	}
 	msg := notify.Message{To: to, Subject: title, Body: body, Data: env.Payload}
-	err := r.notify.Send(ctx, channel, msg)
+	sender := r.notify
+	if r.tenantSvc != nil && env.TenantID != "" {
+		if tid, err := uuid.Parse(env.TenantID); err == nil {
+			cfg := r.tenantSvc.ResolveNotifyConfig(ctx, tid, r.cfg.Notify)
+			sender = notify.NewRouter(cfg, r.log)
+		}
+	}
+	err := sender.Send(ctx, channel, msg)
 	status := notifydomain.DeliverySent
 	var errMsg *string
 	if err != nil {

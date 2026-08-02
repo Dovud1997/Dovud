@@ -50,4 +50,9 @@ class ApiClient {
     final res = await dio.patch(path, data: data);
     return Map<String, dynamic>.from(res.data as Map);
   }
+
+  Future<Map<String, dynamic>> delete(String path) async {
+    final res = await dio.delete(path);
+    return Map<String, dynamic>.from(res.data as Map? ?? const {});
+  }
 }

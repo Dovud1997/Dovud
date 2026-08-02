@@ -26,3 +26,9 @@ type DomainRepository interface {
 	Create(ctx context.Context, domain *Domain) error
 	Delete(ctx context.Context, tenantID, id uuid.UUID) error
 }
+
+type ProviderRepository interface {
+	List(ctx context.Context, tenantID uuid.UUID) ([]TenantProvider, error)
+	FindByType(ctx context.Context, tenantID uuid.UUID, providerType string) (*TenantProvider, error)
+	Upsert(ctx context.Context, p *TenantProvider) error
+}

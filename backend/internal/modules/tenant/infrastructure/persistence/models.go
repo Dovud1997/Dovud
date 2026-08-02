@@ -51,3 +51,16 @@ type DomainModel struct {
 }
 
 func (DomainModel) TableName() string { return "tenant_domains" }
+
+type ProviderModel struct {
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey"`
+	TenantID  uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:uq_tenant_provider_type"`
+	Type      string    `gorm:"size:32;not null;uniqueIndex:uq_tenant_provider_type"`
+	Driver    string    `gorm:"size:32;not null;default:log"`
+	ConfigEnc string    `gorm:"type:text;not null"`
+	IsEnabled bool      `gorm:"not null;default:true"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (ProviderModel) TableName() string { return "tenant_providers" }

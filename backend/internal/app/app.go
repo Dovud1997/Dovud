@@ -54,6 +54,7 @@ import (
 	tenanthttp "github.com/Dovud1997/Dovud/backend/internal/modules/tenant/interfaces/http"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/auth"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/config"
+	"github.com/Dovud1997/Dovud/backend/internal/platform/crypto"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/database"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/logger"
 	"github.com/Dovud1997/Dovud/backend/internal/platform/outbox"
@@ -120,6 +121,11 @@ func New(cfgPath string) (*Application, error) {
 	tenantRepo := tenantpersist.NewTenantRepo(db)
 	brandingRepo := tenantpersist.NewBrandingRepo(db)
 	domainRepo := tenantpersist.NewDomainRepo(db)
+	providerRepo := tenantpersist.NewProviderRepo(db)
+	secretBox, err := crypto.NewSecretBox(cfg.Auth.AccessSecret)
+	if err != nil {
+		return nil, fmt.Errorf("provider crypto: %w", err)
+	}
 
 	companyRepo := orgpersist.NewCompanyRepo(db)
 	branchRepo := orgpersist.NewBranchRepo(db)
@@ -168,7 +174,7 @@ func New(cfgPath string) (*Application, error) {
 	}
 	authSvc := identityapp.NewAuthService(userRepo, refreshRepo, deviceRepo, tenantRepo, tokenSvc).WithLoginGuard(loginGuard)
 	rbacSvc := identityapp.NewRBACService(userRepo, roleRepo)
-	tenantSvc := tenantapp.NewTenantService(tenantRepo, brandingRepo, domainRepo)
+	tenantSvc := tenantapp.NewTenantService(tenantRepo, brandingRepo, domainRepo).WithProviders(providerRepo, secretBox)
 	orgSvc := orgapp.NewService(companyRepo, branchRepo, warehouseRepo)
 	catalogSvc := catalogapp.NewService(manufacturerRepo, categoryRepo, productRepo, priceRepo, promotionRepo)
 	crmSvc := crmapp.NewService(customerRepo, contactRepo, addressRepo, customerCategoryRepo)
@@ -213,6 +219,7 @@ func autoMigrate(db *gorm.DB) error {
 		&tenantpersist.TenantModel{},
 		&tenantpersist.BrandingModel{},
 		&tenantpersist.DomainModel{},
+		&tenantpersist.ProviderModel{},
 		&identitypersist.PermissionModel{},
 		&identitypersist.RoleModel{},
 		&identitypersist.RolePermissionModel{},
