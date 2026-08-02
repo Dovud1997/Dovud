@@ -1,0 +1,32 @@
+# Go
+backend/bin/
+backend/sfa_dev.db
+backend/*.db
+backend/vendor/
+*.exe
+*.test
+coverage.out
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Flutter
+frontend/sfa_app/.dart_tool/
+frontend/sfa_app/.packages
+frontend/sfa_app/build/
+frontend/sfa_app/.flutter-plugins
+frontend/sfa_app/.flutter-plugins-dependencies
+frontend/sfa_app/pubspec.lock
+
+# Local
+tmp/
+*.log
+backend/storage/

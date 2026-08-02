@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sfa.fullname" . }}-api
+  labels:
+    {{- include "sfa.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  {{- if not .Values.api.hpa.enabled }}
+  replicas: {{ .Values.api.replicas }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "sfa.name" . }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "sfa.name" . }}
+        app.kubernetes.io/component: api
+    spec:
+      containers:
+        - name: api
+          image: {{ .Values.image.api | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.api.port }}
+          env:
+            {{- range $k, $v := .Values.env }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+            - name: SFA_HTTP_ADDR
+              value: ":{{ .Values.api.port }}"
+            {{- if .Values.secret.create }}
+            - name: SFA_ACCESS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (printf "%s-secrets" (include "sfa.fullname" .)) .Values.secret.name }}
+                  key: SFA_ACCESS_SECRET
+            - name: SFA_REFRESH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (printf "%s-secrets" (include "sfa.fullname" .)) .Values.secret.name }}
+                  key: SFA_REFRESH_SECRET
+            {{- if .Values.secrets.SFA_DATABASE_DSN }}
+            - name: SFA_DATABASE_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (printf "%s-secrets" (include "sfa.fullname" .)) .Values.secret.name }}
+                  key: SFA_DATABASE_DSN
+            {{- end }}
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /api/v1/public/health
+              port: {{ .Values.api.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/v1/public/health
+              port: {{ .Values.api.port }}
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "sfa.fullname" . }}-api
+  labels:
+    {{- include "sfa.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "sfa.name" . }}
+    app.kubernetes.io/component: api
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: {{ .Values.api.port }}

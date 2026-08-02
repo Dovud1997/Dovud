@@ -1,0 +1,6 @@
+apiVersion: v2
+name: sfa
+description: Sales Force Automation white-label platform
+type: application
+version: 0.11.0
+appVersion: "0.11.0"

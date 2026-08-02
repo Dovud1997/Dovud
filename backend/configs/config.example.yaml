@@ -1,0 +1,55 @@
+app:
+  name: sfa-api
+  env: local
+  http_addr: ":8080"
+  public_base_url: "http://localhost:8080"
+
+database:
+  dsn: "host=localhost user=sfa password=sfa dbname=sfa port=5432 sslmode=disable TimeZone=UTC"
+
+redis:
+  addr: "localhost:6379"
+  password: ""
+  db: 0
+
+auth:
+  access_secret: "change-me-access-secret-min-32-chars!!"
+  refresh_secret: "change-me-refresh-secret-min-32-chars!"
+  access_ttl_minutes: 15
+  refresh_ttl_days: 30
+  issuer: "sfa"
+
+minio:
+  endpoint: "localhost:9000"
+  access_key: "minioadmin"
+  secret_key: "minioadmin"
+  bucket: "sfa"
+  use_ssl: false
+  driver: "auto"
+  local_path: "./storage"
+
+rabbitmq:
+  url: "amqp://sfa:sfa@localhost:5672/"
+
+notify:
+  email:
+    driver: "file" # log | file | smtp
+    host: "localhost"
+    port: 1025
+    from: "noreply@sfa.local"
+    file_dir: "./storage/mail"
+  sms:
+    driver: "log" # log | http
+    webhook_url: ""
+  push:
+    driver: "log" # log | http (FCM later)
+    webhook_url: ""
+
+security:
+  cors_origins: "*"
+  body_limit_mb: 10
+  rate_limit_max: 120
+  rate_limit_window_sec: 60
+  login_max_attempts: 5
+  login_window_minutes: 15
+  login_lockout_minutes: 15

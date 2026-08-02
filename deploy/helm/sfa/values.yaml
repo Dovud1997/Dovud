@@ -1,0 +1,74 @@
+image:
+  api: sfa-api:latest
+  worker: sfa-worker:latest
+  scheduler: sfa-scheduler:latest
+  pullPolicy: IfNotPresent
+
+api:
+  replicas: 1
+  port: 8080
+  resources: {}
+  hpa:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+worker:
+  replicas: 1
+  resources: {}
+
+scheduler:
+  replicas: 1
+  resources: {}
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: ""
+  host: sfa.local
+  tls: false
+  tlsSecretName: sfa-tls
+
+networkPolicy:
+  enabled: false
+
+secret:
+  create: true
+  name: ""
+
+config:
+  env: production
+  publicBaseUrl: https://sfa.local
+
+env:
+  SFA_DATABASE_DSN: ""
+  SFA_REDIS_ADDR: redis:6379
+  SFA_RABBITMQ_URL: amqp://sfa:sfa@rabbitmq:5672/
+  SFA_MINIO_ENDPOINT: minio:9000
+  SFA_MINIO_ACCESS_KEY: minioadmin
+  SFA_MINIO_SECRET_KEY: minioadmin
+  SFA_MINIO_BUCKET: sfa
+  SFA_STORAGE_DRIVER: minio
+  SFA_EMAIL_DRIVER: log
+  SFA_SMTP_HOST: ""
+  SFA_SMTP_PORT: "1025"
+  SFA_SMTP_FROM: noreply@sfa.local
+  SFA_SMS_DRIVER: log
+  SFA_PUSH_DRIVER: log
+  SFA_CORS_ORIGINS: https://sfa.local
+  SFA_RATE_LIMIT_MAX: "120"
+
+secrets:
+  SFA_ACCESS_SECRET: change-me-access-secret-min-32-chars!!
+  SFA_REFRESH_SECRET: change-me-refresh-secret-min-32-chars!
+  SFA_DATABASE_DSN: ""
+
+postgres:
+  enabled: false
+
+redis:
+  enabled: false

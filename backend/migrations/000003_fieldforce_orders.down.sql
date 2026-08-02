@@ -1,0 +1,10 @@
+DROP TABLE IF EXISTS order_status_history;
+DROP TABLE IF EXISTS order_lines;
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS gps_tracks;
+DROP TABLE IF EXISTS visit_comments;
+DROP TABLE IF EXISTS visit_photos;
+DROP TABLE IF EXISTS visits;
+DROP TABLE IF EXISTS route_stops;
+DROP TABLE IF EXISTS routes;
+DROP TABLE IF EXISTS sales_agents;
