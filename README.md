@@ -22,6 +22,9 @@ Full design pack: **[docs/architecture/README.md](docs/architecture/README.md)**
 # Full stack: Postgres, Redis, RabbitMQ, MinIO, API, worker, scheduler, Web Admin
 docker compose up --build -d
 
+# Restricted VMs (Docker bridge routing broken) — use host networking:
+sudo docker compose -f docker-compose.yml -f docker-compose.host.yml up --build -d
+
 # Web UI:  http://localhost:3000
 # API:     http://localhost:8080/api/v1
 # Mailhog: http://localhost:8025
@@ -30,7 +33,7 @@ docker compose up --build -d
 
 Demo login in the browser: tenant `demo`, `admin@demo.local` / `Admin123!`
 
-On restricted VMs where container DNS/routing fails, run services with `network_mode: host` (Linux only) or use local SQLite API + `flutter run -d chrome`.
+On restricted VMs where container DNS/routing fails, use `docker-compose.host.yml` (Linux `network_mode: host`) or local SQLite API + `flutter run -d chrome`.
 
 ## Quick start (local API)
 
